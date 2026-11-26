@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex,nofollow">
+<meta name="theme-color" content="#0e1116">
+<title>Vault &amp; JS Packer</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230e1116'/%3E%3Crect x='17' y='30' width='30' height='22' rx='4' fill='none' stroke='%234f8cff' stroke-width='5'/%3E%3Cpath d='M23 30V21a9 9 0 0 1 18 0v9' fill='none' stroke='%234f8cff' stroke-width='5'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<div class="px-layer" aria-hidden="true">
+  <i class="orb o1"></i>
+  <i class="orb o2"></i>
+  <i class="orb o3"></i>
+</div>
+
+<div class="wrap">
+  <header class="top">
+    <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+    <div><b>Vault &amp; Packer</b><span>Kunci file &amp; bungkus kode, semua diproses di browser</span></div>
+  </header>
+
+  <nav class="tabs" role="tablist" id="tabs">
+    <button class="tab" role="tab" data-tab="encrypt" aria-selected="true">Kunci File</button>
+    <button class="tab" role="tab" data-tab="decrypt" aria-selected="false">Buka Vault</button>
+    <button class="tab" role="tab" data-tab="pack" aria-selected="false">JS Packer</button>
+  </nav>
+
+  <!-- ===== KUNCI FILE (encrypt) ===== -->
+  <section data-pane="encrypt">
+    <div class="card">
+      <h2>Kunci file jadi Vault</h2>
+      <p class="sub">Terima file apa saja — zip, js, html, atau lainnya. Dienkripsi AES-256-GCM dengan password kamu, lalu dibungkus jadi satu file HTML yang bisa kamu kirim ke siapa pun.</p>
+
+      <div class="drop" id="vdrop">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3m0 0 4 4m-4-4L8 7"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>
+        <div class="t">Klik untuk pilih file, atau tarik ke sini</div>
+        <div class="m">Zip, JS, HTML, atau format apa saja</div>
+      </div>
+      <input type="file" id="vinput" class="hidden">
+      <div class="filechip hidden" id="vchip"><b></b><span></span></div>
+
+      <label style="margin-top:18px">Password</label>
+      <div class="field">
+        <input id="vpw" type="password" autocomplete="new-password" placeholder="Minimal 8 karakter, campur huruf/angka/simbol">
+        <button type="button" class="eye" id="veye" aria-label="Tampilkan password"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+      </div>
+      <div class="meter"><i id="vmeterbar"></i></div>
+
+      <label>Ulangi password</label>
+      <input id="vpw2" type="password" autocomplete="new-password" placeholder="Ketik ulang password yang sama">
+
+      <div class="err" id="verr"></div>
+      <button class="btn btn-gold" id="vgo">Buat Vault</button>
+      <div class="progress" id="vprog"><span class="spin"></span> Mengenkripsi (PBKDF2 310.000 iterasi)…</div>
+      <div class="result hidden" id="vresult"></div>
+
+      <div class="warn">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>
+        <div>Password tidak disimpan di mana pun. Kalau lupa, file di dalam vault <b>tidak bisa dipulihkan oleh siapa pun</b> — termasuk kami.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== BUKA VAULT (decrypt) ===== -->
+  <section data-pane="decrypt" class="hidden">
+    <div class="card">
+      <h2>Buka file Vault</h2>
+      <p class="sub">Punya file <span class="mono">.vault.html</span>? Kamu juga bisa membukanya langsung dengan dobel-klik file itu sendiri — ini cuma cara cepat untuk mencobanya di sini.</p>
+
+      <div class="drop" id="ddrop">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3m0 0 4 4m-4-4L8 7"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>
+        <div class="t">Klik untuk pilih file vault</div>
+        <div class="m">File .vault.html hasil dari tab "Kunci File"</div>
+      </div>
+      <input type="file" id="dinput" class="hidden" accept=".html">
+      <div class="filechip hidden" id="dchip"><b></b><span></span></div>
+
+      <label style="margin-top:18px">Password</label>
+      <div class="field">
+        <input id="dpw" type="password" autocomplete="current-password" placeholder="Password vault ini">
+        <button type="button" class="eye" id="deye" aria-label="Tampilkan password"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button>
+      </div>
+
+      <div class="err" id="derr"></div>
+      <button class="btn btn-gold" id="dgo">Buka File</button>
+      <div class="progress" id="dprog"><span class="spin"></span> Memeriksa password…</div>
+      <div class="result hidden" id="dresult"></div>
+    </div>
+  </section>
+
+  <!-- ===== JS PACKER (obfuskasi ringan) ===== -->
+  <section data-pane="pack" class="hidden">
+    <div class="card">
+      <h2>JS Packer</h2>
+      <p class="sub">Membungkus kode JavaScript jadi base64 + loader, supaya tidak langsung terbaca sekilas. Ini <b>bukan enkripsi</b> dan bukan proteksi mutlak — kalau mau benar-benar kuat, pakai tab "Kunci File" di atas.</p>
+
+      <div class="drop" id="pdrop">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3m0 0 4 4m-4-4L8 7"/><path d="M4 15v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4"/></svg>
+        <div class="t">Klik untuk pilih file .js</div>
+        <div class="m">Kode tidak diubah perilakunya, hanya disamarkan</div>
+      </div>
+      <input type="file" id="pinput" class="hidden" accept=".js,text/javascript">
+      <div class="filechip hidden" id="pchip"><b></b><span></span></div>
+
+      <label class="opt" style="margin-top:18px;text-transform:none;letter-spacing:0;font-weight:400;font-size:13.5px;color:var(--text)">
+        <input type="checkbox" id="padv">
+        <span><span class="l">Sembunyikan teks/string juga (lanjutan)</span><span class="d">Memecah semua teks literal ke array tersembunyi. Berisiko pada kode yang pakai template literal (`` ` ``) atau regex berisi tanda kutip — cek dulu hasilnya sebelum dipakai.</span></span>
+      </label>
+
+      <div class="err" id="perr"></div>
+      <button class="btn btn-gold" id="pgo">Bungkus Kode</button>
+      <div class="result hidden" id="presult"></div>
+    </div>
+  </section>
+
+  <div class="foot">Semua proses enkripsi &amp; pembungkusan berjalan di browser kamu sendiri (Web Crypto API). Tidak ada file atau password yang pernah dikirim ke server mana pun.</div>
+</div>
+
+<script src="/app.js"></script>
+</body>
+</html>
