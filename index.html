@@ -4,13 +4,13 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex,nofollow">
-<meta name="theme-color" content="#0e1116">
+<meta name="theme-color" content="#f4efe6">
 <title>Vault &amp; JS Packer</title>
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230e1116'/%3E%3Crect x='17' y='30' width='30' height='22' rx='4' fill='none' stroke='%234f8cff' stroke-width='5'/%3E%3Cpath d='M23 30V21a9 9 0 0 1 18 0v9' fill='none' stroke='%234f8cff' stroke-width='5'/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='16' fill='%232f7fd8'/%3E%3Cpath d='M52 12 12 28l15 5.5L32.5 50z' fill='%23fffdf8'/%3E%3Cpath d='M52 12 27 33.500l-2 10 7.500 -4z' fill='%23c9dcf5'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="/style.css">
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
@@ -18,18 +18,25 @@
   <i class="orb o1"></i>
   <i class="orb o2"></i>
   <i class="orb o3"></i>
+  <svg class="plane pl1" viewBox="0 0 64 40"><use href="#pp"/></svg>
+  <svg class="plane pl2" viewBox="0 0 64 40"><use href="#pp"/></svg>
+  <svg class="plane pl3" viewBox="0 0 64 40"><use href="#pp"/></svg>
 </div>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+  <symbol id="pp" viewBox="0 0 64 40"><path d="M62 2 2 18l20 6z" fill="var(--paper)" stroke="var(--crease)" stroke-width="1.4" stroke-linejoin="round"/><path d="M62 2 22 24l4 14 7-11z" fill="var(--paper-shade)" stroke="var(--crease)" stroke-width="1.4" stroke-linejoin="round"/><path d="M22 24 62 2" stroke="var(--crease)" stroke-width="1.2" fill="none"/></symbol>
+</defs></svg>
 
 <div class="wrap">
   <header class="top">
-    <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
-    <div><b>Vault &amp; Packer</b><span>Kunci file &amp; bungkus kode, semua diproses di browser</span></div>
+    <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2.5 2.5 10.2l6.9 2.6 2.6 6.9z"/><path d="M21.5 2.5 9.4 12.8"/><path d="M9.4 12.8 9 18l3-3.6"/></svg></div>
+    <div><b>Vault &amp; Packer</b><span>Terbangkan file dengan aman — kunci, bungkus kode, dan cari musik</span></div>
   </header>
 
   <nav class="tabs" role="tablist" id="tabs">
     <button class="tab" role="tab" data-tab="encrypt" aria-selected="true">Kunci File</button>
     <button class="tab" role="tab" data-tab="decrypt" aria-selected="false">Buka Vault</button>
     <button class="tab" role="tab" data-tab="pack" aria-selected="false">JS Packer</button>
+    <button class="tab" role="tab" data-tab="music" aria-selected="false">Musik</button>
   </nav>
 
   <!-- ===== KUNCI FILE (encrypt) ===== -->
@@ -109,9 +116,42 @@
       <input type="file" id="pinput" class="hidden" accept=".js,text/javascript">
       <div class="filechip hidden" id="pchip"><b></b><span></span></div>
 
-      <label class="opt" style="margin-top:18px;text-transform:none;letter-spacing:0;font-weight:400;font-size:13.5px;color:var(--text)">
+      <label style="margin-top:18px">Gaya obfuskasi</label>
+      <select id="ppreset" class="psel">
+        <option value="standard">Standar — base64 + loader</option>
+        <option value="quantum">Quantum Vortex — XOR dinamis per-karakter</option>
+        <option value="nebula">Nebula Polymorphic Storm — payload dipecah &amp; diacak</option>
+        <option value="calcrick">Calcrick Chaos Core — dipecah + dibalik + nama hias</option>
+        <option value="timelock">Time-Locked — kedaluwarsa otomatis (hari ke-N berhenti jalan)</option>
+        <option value="custom">Kustom — nama variabel pakai kata kuncimu</option>
+      </select>
+      <div class="hint" id="ppresetHint"></div>
+
+      <div id="pexpireWrap" class="hidden">
+        <label>Masa aktif (hari)</label>
+        <input id="pexpire" type="number" min="1" max="365" value="7" placeholder="1–365">
+      </div>
+      <div id="pcustomWrap" class="hidden">
+        <label>Kata kunci nama variabel</label>
+        <input id="pcustom" type="text" maxlength="24" placeholder="Contoh: XyzLeo">
+      </div>
+
+      <label style="margin-top:18px">Gaya nama variabel</label>
+      <select id="pidstyle" class="psel">
+        <option value="ascii">Acak (huruf/angka biasa)</option>
+        <option value="arab">Arab (أ ب ت …)</option>
+        <option value="japan">Jepang — Hiragana (あ い う …)</option>
+        <option value="mandarin">Mandarin — Han (龙 风 云 …)</option>
+        <option value="invisible">Tak terlihat (zero-width, tampak seperti "_")</option>
+      </select>
+
+      <label class="opt" style="margin-top:14px;text-transform:none;letter-spacing:0;font-weight:400;font-size:13.5px;color:var(--text)">
         <input type="checkbox" id="padv">
         <span><span class="l">Sembunyikan teks/string juga (lanjutan)</span><span class="d">Memecah semua teks literal ke array tersembunyi. Berisiko pada kode yang pakai template literal (`` ` ``) atau regex berisi tanda kutip — cek dulu hasilnya sebelum dipakai.</span></span>
+      </label>
+      <label class="opt" style="text-transform:none;letter-spacing:0;font-weight:400;font-size:13.5px;color:var(--text)">
+        <input type="checkbox" id="pself" checked>
+        <span><span class="l">Proteksi anti-tamper ringan</span><span class="d">Menambahkan pemeriksaan integritas kecil sebelum kode dijalankan. Kalau lingkungannya mencurigakan/dirusak, kode berhenti dengan error — bukan rusak diam-diam.</span></span>
       </label>
 
       <div class="err" id="perr"></div>
@@ -120,9 +160,25 @@
     </div>
   </section>
 
-  <div class="foot">Semua proses enkripsi &amp; pembungkusan berjalan di browser kamu sendiri (Web Crypto API). Tidak ada file atau password yang pernah dikirim ke server mana pun.</div>
+  <!-- ===== CARI MUSIK ===== -->
+  <section data-pane="music" class="hidden">
+    <div class="card">
+      <h2>Cari musik</h2>
+      <p class="sub">Ketik judul lagu, artis, atau album. Hasil diambil dari katalog Apple iTunes (cadangan: Deezer) — tanpa login, tanpa API key. Setiap lagu bisa diputar sebagai cuplikan 30 detik.</p>
+
+      <form id="mform" class="msearch" autocomplete="off">
+        <input id="mq" type="search" placeholder="Contoh: Coldplay Yellow" enterkeyhint="search" aria-label="Cari musik">
+        <button class="btn btn-gold" id="mgo" type="submit">Cari</button>
+      </form>
+      <div class="err" id="merr"></div>
+      <div class="mmeta hidden" id="mmeta"></div>
+      <ul class="tracks" id="mlist"></ul>
+    </div>
+  </section>
+
+  <div class="foot">Semua proses enkripsi &amp; pembungkusan berjalan di browser kamu sendiri (Web Crypto API). Tidak ada file atau password yang pernah dikirim ke server mana pun. Hanya fitur Musik yang menghubungi internet (untuk mencari lagu).</div>
 </div>
 
-<script src="/app.js"></script>
+<script src="app.js"></script>
 </body>
 </html>

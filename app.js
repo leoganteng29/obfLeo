@@ -76,8 +76,8 @@ function buildVaultHtml({ filename, mime, saltB64, ivB64, ctB64 }) {
 <meta name="robots" content="noindex,nofollow">
 <title>Vault · ${safeName}</title>
 <style>
-:root{--bg:#0e1116;--panel:#151a22;--panel2:#1b212b;--line:#262e3a;--text:#e6e9ef;--mute:#8b93a3;--primary:#4f8cff;--primary-d:#2f63c9;--bad:#e5534b;--ok:#3ecf8e}
-@media (prefers-color-scheme:light){:root{--bg:#f7f8fa;--panel:#fff;--panel2:#f0f2f5;--line:#e0e4ea;--text:#1a1f28;--mute:#6b7280;--primary:#2563eb;--primary-d:#1d4ed8}}
+:root{--bg:#0c1a2d;--panel:#122640;--panel2:#18304d;--line:#27446a;--text:#eaf1fb;--mute:#93a8c4;--primary:#5aa2ff;--primary-d:#2f6fc9;--bad:#ef6a62;--ok:#3ecf8e}
+@media (prefers-color-scheme:light){:root{--bg:#f4efe6;--panel:#fffdf8;--panel2:#f6f0e4;--line:#e4dac6;--text:#23262e;--mute:#6f6a5e;--primary:#2f7fd8;--primary-d:#1f5fae}}
 *{box-sizing:border-box}html,body{margin:0;min-height:100vh;background:var(--bg);color:var(--text);font-family:system-ui,sans-serif;display:grid;place-items:center;padding:20px}
 .c{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:28px 24px;box-shadow:0 30px 80px -30px rgba(0,0,0,.6)}
 .lk{width:44px;height:44px;border-radius:13px;display:grid;place-items:center;background:linear-gradient(145deg,var(--primary),var(--primary-d));color:#fff;margin-bottom:16px}
@@ -86,7 +86,7 @@ p{color:var(--mute);font-size:13px;margin:0 0 18px;line-height:1.55}
 input{width:100%;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px 13px;font-size:15px;outline:none;color:var(--text)}
 input:focus{border-color:var(--primary);box-shadow:0 0 0 3px color-mix(in srgb,var(--primary) 22%,transparent)}
 button{width:100%;margin-top:14px;border:0;border-radius:12px;padding:13px;font-weight:700;font-size:15px;cursor:pointer;color:#fff;
-  background:linear-gradient(180deg,#5b98ff 0%,var(--primary) 55%,var(--primary-d) 100%);box-shadow:0 5px 0 var(--primary-d);transition:transform .1s}
+  background:linear-gradient(180deg,var(--primary) 0%,var(--primary-d) 100%);box-shadow:0 5px 0 var(--primary-d);transition:transform .1s}
 button:active{transform:translateY(4px) scale(.97);box-shadow:0 1px 0 var(--primary-d)}
 button:disabled{opacity:.5}
 .err{color:var(--bad);font-size:13px;margin-top:12px;min-height:16px}
@@ -95,7 +95,7 @@ a.dl{display:block;text-align:center;margin-top:10px;text-decoration:none;color:
 .foot{text-align:center;color:var(--mute);font-size:11px;margin-top:16px;line-height:1.6}
 </style></head><body>
 <div class="c">
-  <div class="lk"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="11" width="16" height="9" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg></div>
+  <div class="lk"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M21.5 2.5 2.5 10.2l6.9 2.6 2.6 6.9z"/><path d="M21.5 2.5 9.4 12.8"/><path d="M9.4 12.8 9 18l3-3.6"/></svg></div>
   <h1>${safeName}</h1>
   <p>File ini terkunci dengan AES-256-GCM. Masukkan password untuk membuka. Semuanya diproses di browser kamu sendiri &mdash; tidak ada yang dikirim ke server mana pun.</p>
   <form id="f" autocomplete="off">
@@ -158,16 +158,129 @@ function extractStrings(src) {
   return { out, arr };
 }
 
-function packJS(src, useStringArray) {
+/* ---- generator nama variabel per "gaya" (murni kosmetik, tidak mengubah perilaku kode) ---- */
+const ID_POOLS = {
+  arab: "أبتثجحخدذرزسشصضطظعغفقكلمنهوي".split(""),
+  japan: "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん".split(""),
+  mandarin: "龙风云山水火光影电梦云海天空星辰月影霜雪龍鳳麒麟虎豹蛟蟒隐影幻影迅捷疾风".split(""),
+};
+function makeNamer(idStyle, customName) {
+  const used = new Set(["eval"]);
+  function raw() {
+    if (idStyle === "custom") {
+      const base = (customName || "X").replace(/[^A-Za-z0-9_$\u00C0-\uFFFF]/g, "").slice(0, 18) || "X";
+      return (/^[0-9]/.test(base) ? "_" + base : base) + "_" + Math.random().toString(36).slice(2, 6);
+    }
+    if (idStyle === "invisible") {
+      const zw = ["\u200c", "\u200d"];
+      let s = "_";
+      const n = 6 + Math.floor(Math.random() * 6);
+      for (let i = 0; i < n; i++) s += zw[Math.floor(Math.random() * 2)];
+      return s;
+    }
+    if (idStyle === "arab" || idStyle === "japan" || idStyle === "mandarin") {
+      const pool = ID_POOLS[idStyle];
+      const n = 3 + Math.floor(Math.random() * 4);
+      let s = "";
+      for (let i = 0; i < n; i++) s += pool[Math.floor(Math.random() * pool.length)];
+      return s;
+    }
+    return "_" + Math.random().toString(36).slice(2, 8); // ascii (acak)
+  }
+  return function next() {
+    let name = raw(), tries = 0;
+    while (used.has(name) && tries++ < 15) name = raw() + (idStyle === "custom" || idStyle === "ascii" ? "" : raw().slice(0, 1));
+    used.add(name);
+    return name;
+  };
+}
+
+const PRESET_LABEL = {
+  standard: "Standar", quantum: "Quantum Vortex", nebula: "Nebula Polymorphic Storm",
+  calcrick: "Calcrick Chaos Core", timelock: "Time-Locked", custom: "Kustom",
+};
+
+/* ====================== JS packer (base64 + "gaya" obfuskasi, murni di browser) ======================
+   Semua "gaya" di bawah ini HANYA mengubah tampilan/lapisan pembungkus (base64, XOR, pecah-acak,
+   balik-string, nama variabel) — bukan enkripsi sungguhan dan bukan proteksi mutlak. Siapa pun yang
+   menjalankan kode ini lewat DevTools pada akhirnya tetap bisa melihat hasil akhirnya. */
+function extractStrings(src) {
+  const arr = [];
+  const re = /'(?:\\.|[^'\\])*'|"(?:\\.|[^"\\])*"/g;
+  const out = src.replace(re, (m) => {
+    if (m.length < 3) return m; // skip string kosong, tidak perlu diacak
+    let val;
+    try { val = JSON.parse(m[0] === "'" ? '"' + m.slice(1, -1).replace(/\\'/g, "'").replace(/"/g, '\\"') + '"' : m); }
+    catch (_) { return m; } // kalau gagal parse (kasus escape rumit), biarkan apa adanya — lebih aman daripada merusak kode
+    const idx = arr.length;
+    arr.push(btoa(unescape(encodeURIComponent(val))));
+    return `__v(${idx})`;
+  });
+  return { out, arr };
+}
+
+function b64Encode(str) { return btoa(unescape(encodeURIComponent(str))); }
+
+function packJS(src, opts) {
+  const { useStringArray, preset = "standard", idStyle = "ascii", customName = "", expireDays = 7, selfCheck = true } = opts || {};
+  const effStyle = preset === "custom" ? "custom" : idStyle;
+  const name = makeNamer(effStyle, customName);
+
   let body = src, arr = [];
   if (useStringArray) { const r = extractStrings(src); body = r.out; arr = r.arr; }
   const helper = arr.length ? `var __a=${JSON.stringify(arr)};function __v(i){return decodeURIComponent(escape(atob(__a[i])));}\n` : "";
-  const payload = btoa(unescape(encodeURIComponent(helper + body)));
-  return `/* dibungkus oleh JS Packer — base64 + loader, hanya penghalang baca sekilas, BUKAN enkripsi */
-(function(){
-  var __p="${payload}";
-  var __s=decodeURIComponent(escape(atob(__p)));
-  (0,eval)(__s);
+  const payloadB64 = b64Encode(helper + body);
+
+  const banner = `/* 🕊 dibungkus oleh JS Packer — gaya "${PRESET_LABEL[preset] || preset}". Ini OBFUSKASI, BUKAN enkripsi. */\n`;
+  const selfGuard = selfCheck
+    ? `if(!((function(){return eval('1+1')===2;})()))throw new Error('Lingkungan eksekusi tidak dikenali.');\n  `
+    : "";
+  const decodeStd = (pVar, sVar) => `var ${sVar}=decodeURIComponent(escape(atob(${pVar})));`;
+
+  let decl = "", runVar;
+
+  if (preset === "quantum") {
+    const vK = name(), vA = name(), vP = name(), vS = name();
+    const k = Math.floor(Math.random() * 256);
+    const codes = [];
+    for (let i = 0; i < payloadB64.length; i++) codes.push(payloadB64.charCodeAt(i) ^ (k + (i % 16)));
+    decl = `var ${vK}=${k};\n  var ${vA}=${JSON.stringify(codes)};\n  var ${vP}=String.fromCharCode.apply(null,${vA}.map(function(c,i){return c^(${vK}+(i%16));}));\n  ${decodeStd(vP, vS)}`;
+    runVar = vS;
+  } else if (preset === "nebula") {
+    const n = 6 + Math.floor(Math.random() * 5);
+    const size = Math.ceil(payloadB64.length / n);
+    const chunks = [];
+    for (let i = 0; i < n; i++) chunks.push(payloadB64.slice(i * size, i * size + size));
+    const order = chunks.map((_, i) => i);
+    for (let i = order.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [order[i], order[j]] = [order[j], order[i]]; }
+    const shuffled = order.map((origIdx) => chunks[origIdx]);
+    const posOf = new Array(n); order.forEach((origIdx, pos) => { posOf[origIdx] = pos; });
+    const vC = name(), vO = name(), vP = name(), vS = name();
+    decl = `var ${vC}=${JSON.stringify(shuffled)};\n  var ${vO}=${JSON.stringify(posOf)};\n  var ${vP}="";\n  for(var __i=0;__i<${vO}.length;__i++){${vP}+=${vC}[${vO}[__i]];}\n  ${decodeStd(vP, vS)}`;
+    runVar = vS;
+  } else if (preset === "calcrick") {
+    const reversed = payloadB64.split("").reverse().join("");
+    const size = 12, chunks = [];
+    for (let i = 0; i < reversed.length; i += size) chunks.push(reversed.slice(i, i + size));
+    const vC = name(), vP = name(), vS = name();
+    decl = `var ${vC}=${JSON.stringify(chunks)};\n  var ${vP}=${vC}.join("").split("").reverse().join("");\n  ${decodeStd(vP, vS)}`;
+    runVar = vS;
+  } else if (preset === "timelock") {
+    const days = Math.min(365, Math.max(1, parseInt(expireDays, 10) || 7));
+    const expiry = Date.now() + days * 86400000;
+    const vE = name(), vP = name(), vS = name();
+    decl = `var ${vE}=${expiry};\n  if(Date.now()>${vE})throw new Error('Skrip ini sudah kedaluwarsa (masa aktif ${days} hari sejak dibungkus).');\n  var ${vP}="${payloadB64}";\n  ${decodeStd(vP, vS)}`;
+    runVar = vS;
+  } else {
+    // standard & custom (custom hanya beda gaya nama variabel)
+    const vP = name(), vS = name();
+    decl = `var ${vP}="${payloadB64}";\n  ${decodeStd(vP, vS)}`;
+    runVar = vS;
+  }
+
+  return `${banner}(function(){
+  ${selfGuard}${decl}
+  (0,eval)(${runVar});
 })();
 `;
 }
@@ -194,6 +307,15 @@ function wireDrop(dropEl, inputEl, onFile) {
 function guessMime(name) {
   const ext = name.split(".").pop().toLowerCase();
   return { zip: "application/zip", js: "text/javascript", html: "text/html", htm: "text/html", json: "application/json", css: "text/css", txt: "text/plain", pdf: "application/pdf", png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg" }[ext] || "application/octet-stream";
+}
+function takeoff() {
+  if (matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+  const el = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+  el.setAttribute("viewBox", "0 0 64 40");
+  el.setAttribute("class", "takeoff");
+  el.innerHTML = '<use href="#pp"/>';
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), 1600);
 }
 function fmtSize(n) { return n < 1024 ? n + " B" : n < 1048576 ? (n / 1024).toFixed(1) + " KB" : (n / 1048576).toFixed(1) + " MB"; }
 
@@ -229,6 +351,7 @@ $("#vgo").addEventListener("click", async () => {
     const blob = new Blob([html], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     const outName = VFILE.name.replace(/\.[^.]+$/, "") + ".vault.html";
+    takeoff();
     $("#vresult").classList.remove("hidden");
     $("#vresult").innerHTML = `<b>Vault siap</b><a class="btn btn-ghost" style="margin-top:0" href="${url}" download="${esc(outName)}">Unduh ${esc(outName)}</a>
       <div class="hint" style="margin-top:10px">Kirim file ini ke siapa pun kamu mau. Tanpa password yang benar, isinya tidak bisa dipulihkan oleh siapapun.</div>`;
@@ -275,21 +398,174 @@ wireDrop($("#pdrop"), $("#pinput"), (f) => {
   r.onload = () => { PFILE = { name: f.name, text: r.result }; $("#pchip").classList.remove("hidden"); $("#pchip b").textContent = f.name; $("#pchip span").textContent = fmtSize(f.size); $("#presult").classList.add("hidden"); };
   r.readAsText(f);
 });
+
+const PRESET_HINT = {
+  standard: "Satu lapis base64 + loader. Paling ringan, paling cepat.",
+  quantum: "Payload di-XOR dengan kunci acak sebelum dibungkus base64 — satu lapis tambahan dari standar.",
+  nebula: "Payload dipecah jadi beberapa bagian, urutannya diacak, lalu disusun ulang saat dijalankan.",
+  calcrick: "Payload dibalik urutan karakternya lalu dipecah jadi potongan-potongan kecil.",
+  timelock: "Sama seperti standar, tapi kode menolak berjalan setelah jumlah hari yang kamu tentukan lewat.",
+  custom: "Sama seperti standar, tapi nama variabel di hasilnya memakai kata kuncimu sebagai awalan.",
+};
+function updatePresetUI() {
+  const v = $("#ppreset").value;
+  $("#pexpireWrap").classList.toggle("hidden", v !== "timelock");
+  $("#pcustomWrap").classList.toggle("hidden", v !== "custom");
+  $("#pidstyle").disabled = v === "custom";
+  $("#ppresetHint").textContent = PRESET_HINT[v] || "";
+}
+$("#ppreset").addEventListener("change", updatePresetUI);
+updatePresetUI();
+
 $("#pgo").addEventListener("click", () => {
   const err = $("#perr"); err.textContent = "";
   if (!PFILE) return (err.textContent = "Pilih file .js dulu.");
+  const preset = $("#ppreset").value;
+  if (preset === "custom" && !$("#pcustom").value.trim()) return (err.textContent = "Isi dulu kata kunci nama variabelnya.");
   try {
-    const packed = packJS(PFILE.text, $("#padv").checked);
+    const packed = packJS(PFILE.text, {
+      useStringArray: $("#padv").checked,
+      preset,
+      idStyle: $("#pidstyle").value,
+      customName: $("#pcustom").value.trim(),
+      expireDays: $("#pexpire").value,
+      selfCheck: $("#pself").checked,
+    });
     const blob = new Blob([packed], { type: "text/javascript" });
     const url = URL.createObjectURL(blob);
     const outName = PFILE.name.replace(/\.js$/, "") + ".packed.js";
+    takeoff();
     $("#presult").classList.remove("hidden");
-    $("#presult").innerHTML = `<b>File terbungkus</b><a class="btn btn-ghost" style="margin-top:0" href="${url}" download="${esc(outName)}">Unduh ${esc(outName)}</a>
+    $("#presult").innerHTML = `<b>File terbungkus (${esc(PRESET_LABEL[preset] || preset)})</b><a class="btn btn-ghost" style="margin-top:0" href="${url}" download="${esc(outName)}">Unduh ${esc(outName)}</a>
       <div class="hint" style="margin-top:10px">Ingat: ini hanya penghalang baca sekilas. Siapa pun yang membuka DevTools browser saat kode ini jalan tetap bisa melihat hasil akhirnya.</div>`;
   } catch (e) {
     err.textContent = "Gagal membungkus: " + e.message;
   }
 });
+
+
+/* ====================== Cari musik ======================
+   Sumber utama: iTunes Search API (Apple) — gratis, tanpa API key, mendukung CORS.
+   Cadangan 1: iTunes via JSONP (menembus blokir CORS/ekstensi).
+   Cadangan 2: Deezer API via JSONP (Deezer tidak mengaktifkan CORS, jadi hanya bisa lewat JSONP).
+   Kalau satu sumber gagal/timeout, otomatis pindah ke sumber berikutnya. */
+const SEARCH_TIMEOUT = 8000;
+
+function jsonp(url, extra) {
+  return new Promise((resolve, reject) => {
+    const cb = "__jp" + Math.random().toString(36).slice(2);
+    const sc = document.createElement("script");
+    const done = () => { clearTimeout(t); delete window[cb]; sc.remove(); };
+    const t = setTimeout(() => { done(); reject(new Error("timeout")); }, SEARCH_TIMEOUT);
+    window[cb] = (data) => { done(); resolve(data); };
+    sc.onerror = () => { done(); reject(new Error("network")); };
+    sc.src = url + (url.includes("?") ? "&" : "?") + (extra || "") + "callback=" + cb;
+    document.head.appendChild(sc);
+  });
+}
+const safeUrl = (u) => (typeof u === "string" && /^https:\/\//i.test(u) ? u : "");
+
+function fromItunes(d) {
+  return (d.results || []).filter((x) => x.trackName).map((x) => ({
+    id: "i" + x.trackId, title: x.trackName, artist: x.artistName || "", album: x.collectionName || "",
+    art: safeUrl((x.artworkUrl100 || "").replace("100x100", "200x200")), preview: safeUrl(x.previewUrl),
+    link: safeUrl(x.trackViewUrl), ms: x.trackTimeMillis || 0,
+  }));
+}
+function fromDeezer(d) {
+  if (d.error) throw new Error("deezer");
+  return (d.data || []).map((x) => ({
+    id: "d" + x.id, title: x.title, artist: (x.artist && x.artist.name) || "", album: (x.album && x.album.title) || "",
+    art: safeUrl(x.album && (x.album.cover_medium || x.album.cover)), preview: safeUrl(x.preview),
+    link: safeUrl(x.link), ms: (x.duration || 0) * 1000,
+  }));
+}
+
+async function searchMusic(q) {
+  const enc = encodeURIComponent(q);
+  const itunes = "https://itunes.apple.com/search?media=music&entity=song&limit=25&term=" + enc;
+  const sources = [
+    ["Apple iTunes", async () => {
+      const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), SEARCH_TIMEOUT);
+      try { const r = await fetch(itunes, { signal: ctl.signal }); if (!r.ok) throw new Error("http " + r.status); return fromItunes(await r.json()); }
+      finally { clearTimeout(t); }
+    }],
+    ["Apple iTunes", async () => fromItunes(await jsonp(itunes))],
+    ["Deezer", async () => fromDeezer(await jsonp("https://api.deezer.com/search?limit=25&output=jsonp&q=" + enc))],
+  ];
+  let lastErr;
+  for (const [name, run] of sources) {
+    try { const tracks = await run(); if (tracks.length) return { name, tracks }; if (name === "Deezer") return { name, tracks: [] }; }
+    catch (e) { lastErr = e; }
+  }
+  if (lastErr) throw lastErr;
+  return { name: "Apple iTunes", tracks: [] };
+}
+
+const ICON_PLAY = '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>';
+const ICON_PAUSE = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="5" width="4.2" height="14" rx="1.2"/><rect x="13.8" y="5" width="4.2" height="14" rx="1.2"/></svg>';
+const ICON_OPEN = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4h6v6M20 4 10 14"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/></svg>';
+
+const player = new Audio(); player.preload = "none";
+let curBtn = null;
+function resetPlaying() {
+  if (curBtn) { curBtn.innerHTML = ICON_PLAY; curBtn.setAttribute("aria-label", "Putar cuplikan"); curBtn.closest(".track").classList.remove("playing"); curBtn = null; }
+}
+player.addEventListener("ended", resetPlaying);
+player.addEventListener("error", () => { if (curBtn) { $("#merr").textContent = "Cuplikan tidak bisa diputar."; resetPlaying(); } });
+
+function renderTracks(tracks) {
+  $("#mlist").innerHTML = tracks.map((t, i) => {
+    const mins = t.ms ? Math.floor(t.ms / 60000) + ":" + String(Math.floor(t.ms / 1000) % 60).padStart(2, "0") : "";
+    return `<li class="track">
+      ${t.art ? `<img class="art" src="${esc(t.art)}" alt="" loading="lazy" referrerpolicy="no-referrer">` : `<div class="art"></div>`}
+      <div class="info"><div class="ti" title="${esc(t.title)}">${esc(t.title)}</div>
+        <div class="ar">${esc(t.artist)}${t.album ? " · " + esc(t.album) : ""}${mins ? " · " + mins : ""}</div></div>
+      <div class="go">
+        <button class="ibtn play" data-i="${i}" ${t.preview ? "" : "disabled"} aria-label="Putar cuplikan">${ICON_PLAY}</button>
+        ${t.link ? `<a class="ibtn ext" href="${esc(t.link)}" target="_blank" rel="noopener noreferrer" aria-label="Buka lagu lengkap">${ICON_OPEN}</a>` : ""}
+      </div></li>`;
+  }).join("");
+}
+
+let MTRACKS = [], mSeq = 0;
+$("#mform").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const q = $("#mq").value.trim();
+  const err = $("#merr"); err.textContent = "";
+  if (!q) return (err.textContent = "Ketik judul lagu atau nama artis dulu.");
+  const seq = ++mSeq;
+  player.pause(); resetPlaying();
+  $("#mgo").disabled = true;
+  $("#mmeta").classList.add("hidden");
+  $("#mlist").innerHTML = '<li class="track sk-row sk"></li>'.repeat(4);
+  try {
+    const { name, tracks } = await searchMusic(q);
+    if (seq !== mSeq) return;
+    MTRACKS = tracks;
+    if (!tracks.length) { $("#mlist").innerHTML = `<li class="empty">Tidak ada hasil untuk “${esc(q)}”. Coba kata kunci lain.</li>`; return; }
+    renderTracks(tracks);
+    $("#mmeta").classList.remove("hidden");
+    $("#mmeta").textContent = `${tracks.length} hasil dari ${name}`;
+    takeoff();
+  } catch (_) {
+    if (seq !== mSeq) return;
+    $("#mlist").innerHTML = "";
+    err.textContent = "Tidak bisa terhubung ke layanan musik. Periksa koneksi internet kamu (atau matikan ad-blocker untuk situs ini), lalu coba lagi.";
+  } finally { if (seq === mSeq) $("#mgo").disabled = false; }
+});
+$("#mlist").addEventListener("click", (e) => {
+  const b = e.target.closest(".play"); if (!b || b.disabled) return;
+  const t = MTRACKS[+b.dataset.i]; if (!t) return;
+  $("#merr").textContent = "";
+  if (curBtn === b) { player.pause(); resetPlaying(); return; }
+  resetPlaying();
+  player.src = t.preview;
+  player.play().then(() => { curBtn = b; b.innerHTML = ICON_PAUSE; b.setAttribute("aria-label", "Jeda"); b.closest(".track").classList.add("playing"); })
+    .catch(() => { $("#merr").textContent = "Cuplikan tidak bisa diputar."; });
+});
+// pindah tab -> hentikan musik
+$("#tabs").addEventListener("click", () => { if (!$('[data-pane="music"]').classList.contains("hidden")) return; player.pause(); resetPlaying(); });
 
 /* ---- parallax (pointer + scroll, digabung biar tidak saling timpa) ---- */
 const orbs = $$(".orb").map((o, i) => ({ el: o, d: [26, -20, 34][i] || 20, sp: [0.08, -0.06, 0.1][i] || 0.08, px: 0, py: 0, sy: 0 }));
