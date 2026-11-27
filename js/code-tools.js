@@ -1,6 +1,8 @@
 /* NEXUS TOOLBOX — developer tools (all logic runs locally) */
 (function (N) {
   "use strict";
+
+  const ico = (name, cls) => (N.icons ? N.icons.svg(name, cls) : "");
   const { escapeHtml: esc } = N.core;
   const $ = (sel, root) => (root || document).querySelector(sel);
   const $$ = (sel, root) => Array.from((root || document).querySelectorAll(sel));
@@ -496,7 +498,7 @@
         const data = JSON.parse(input);
         const type = Array.isArray(data) ? "Array" : data === null ? "null" : typeof data;
         const size = new Blob([input]).size;
-        return { html: `<div class="notice info" style="border-color:rgba(52,211,153,.3);background:rgba(52,211,153,.08);color:#a7f3d0">✓ JSON valid.</div>
+        return { html: `<div class="notice info" style="border-color:rgba(52,211,153,.3);background:rgba(52,211,153,.08);color:#a7f3d0">${ico("check")} JSON valid.</div>
           <div class="metric-grid mt-8"><div class="metric"><strong>${esc(type)}</strong><small>Root type</small></div>
           <div class="metric"><strong>${Array.isArray(data) ? data.length : Object.keys(data || {}).length}</strong><small>Elemen/kunci utama</small></div>
           <div class="metric"><strong>${N.core.formatBytes(size)}</strong><small>Ukuran</small></div></div>` };
@@ -592,7 +594,7 @@
           matches.push({ index: m.index, value: m[0], groups: m.slice(1) });
           if (!global || m[0] === "") break;
         }
-        if (!matches.length) return { html: `<div class="empty"><div class="empty-icon">∅</div><strong>Tidak ada match</strong><p>Coba ubah pola atau flags.</p></div>` };
+        if (!matches.length) return { html: `<div class="empty"><div class="empty-icon">${ico("search")}</div><strong>Tidak ada match</strong><p>Coba ubah pola atau flags.</p></div>` };
         return { html: `<div class="results">${matches.map((x) => `<div class="result-row"><span class="faint mono">@${x.index}</span><code>${esc(x.value)}</code>${x.groups.length ? `<span class="tiny muted">groups: ${esc(x.groups.join(" | "))}</span>` : ""}</div>`).join("")}</div>` };
       }
     },
@@ -668,7 +670,7 @@
     host.innerHTML = `
       <div class="workspace-head">
         <div><span class="eyebrow">${esc(N.registry.category(tool.cat).label)}</span><h1 class="page-title">${esc(spec.title)}</h1><p class="sub">${esc(tool.desc)}</p></div>
-        <div class="row"><button class="btn btn-sm btn-ghost" data-act="fav" type="button">${N.core.isFavorite(toolId) ? "★ Tersimpan" : "☆ Simpan"}</button></div>
+        <div class="row"><button class="btn btn-sm btn-ghost" data-act="fav" type="button">${ico(N.core.isFavorite(toolId) ? "star" : "starOff")}<span>${N.core.isFavorite(toolId) ? "Tersimpan" : "Simpan"}</span></button></div>
       </div>
       <div class="card card-pad">
         <div class="opts" ${spec.fields && spec.fields.length ? "" : "hidden"}>${(spec.fields || []).map(fieldHtml).join("")}</div>
@@ -687,7 +689,7 @@
             <div class="status-line" id="toolMeta"></div>
           </div>
         </div>
-        <div class="row mt-16"><button class="btn btn-primary" data-act="run" type="button">▶ Jalankan</button><span class="hint">Semua proses berjalan di browser Anda.</span></div>
+        <div class="row mt-16"><button class="btn btn-primary" data-act="run" type="button">${ico("play")}<span>Jalankan</span></button><span class="hint">Semua proses berjalan di browser Anda.</span></div>
       </div>`;
 
     const input = $("#toolInput", host);
@@ -772,7 +774,7 @@
       }
       if (act === "fav") {
         const on = N.core.toggleFavorite(toolId);
-        btn.textContent = on ? "★ Tersimpan" : "☆ Simpan";
+        btn.innerHTML = ico(on ? "star" : "starOff") + "<span>" + (on ? "Tersimpan" : "Simpan") + "</span>";
         N.core.toast(on ? "Ditambahkan ke favorites." : "Dihapus dari favorites.", "ok");
       }
     });

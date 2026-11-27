@@ -1,6 +1,8 @@
 /* NEXUS TOOLBOX — Music Lounge: cari lagu, pratinjau 30 detik (iTunes), pemutar Spotify penuh, dan favorit */
 (function (N) {
   "use strict";
+
+  const ico = (name, cls) => (N.icons ? N.icons.svg(name, cls) : "");
   const { escapeHtml: esc } = N.core;
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
@@ -24,7 +26,7 @@
 
   // Model lagu seragam: src "itunes" (pratinjau 30 dtk) atau "spotify" (pemutar penuh lewat embed resmi Spotify).
   async function fetchItunes(q, signal) {
-    const res = await fetch("https://itunes.apple.com/search?term=" + encodeURIComponent(q) + "&media=music&entity=song&limit=15&country=ID", { signal });
+    const res = await N.security.fetch("https://itunes.apple.com/search?term=" + encodeURIComponent(q) + "&media=music&entity=song&limit=15&country=ID", { signal });
     if (!res.ok) throw new Error("iTunes HTTP " + res.status);
     const j = await res.json();
     return (j.results || []).filter((x) => x.trackName && x.previewUrl).map((x) => ({
@@ -34,7 +36,7 @@
     }));
   }
   async function fetchSpotify(q, signal) {
-    const res = await fetch(XRINA + "/search/spotify?query=" + encodeURIComponent(q), { headers: { Accept: "application/json" }, signal });
+    const res = await N.security.fetch(XRINA + "/search/spotify?query=" + encodeURIComponent(q), { headers: { Accept: "application/json" }, signal });
     if (!res.ok) throw new Error("Spotify HTTP " + res.status);
     const j = await res.json();
     if (!j || j.status !== true) throw new Error((j && (j.message || j.error)) || "Spotify tidak memberi hasil.");
@@ -62,11 +64,7 @@
       ws.forEach((f) => f(api));
     }
     window.onSpotifyIframeApiReady = (api) => finish(api, "ready");
-    const sc = document.createElement("script");
-    sc.src = "https://open.spotify.com/embed/iframe-api/v1";
-    sc.async = true;
-    sc.onerror = () => finish(null, "failed");
-    document.head.appendChild(sc);
+    N.security.loadScript("https://open.spotify.com/embed/iframe-api/v1", (ok) => { if (!ok) finish(null, "failed"); });
   }
 
   function render(host) {
@@ -125,10 +123,10 @@
       <div id="muArt" style="flex:none;width:44px;height:44px"></div>
       <div class="mu-info"><strong id="muTitle">-</strong><small id="muArtist">-</small></div>
       <div class="mu-ctrl">
-        <button id="muPrev" type="button" aria-label="Sebelumnya">⏮</button>
-        <button id="muPlay" class="big" type="button" aria-label="Putar atau jeda">▶</button>
-        <button id="muNext" type="button" aria-label="Berikutnya">⏭</button>
-        <button id="muFav" type="button" aria-label="Favorit">♡</button>
+        <button id="muPrev" type="button" aria-label="Sebelumnya">${ico("skipBack")}</button>
+        <button id="muPlay" class="big" type="button" aria-label="Putar atau jeda">${ico("play")}</button>
+        <button id="muNext" type="button" aria-label="Berikutnya">${ico("skipForward")}</button>
+        <button id="muFav" type="button" aria-label="Favorit">${ico("heartOff")}</button>
       </div>
       <div class="mu-seek"><span id="muCur">0:00</span><input type="range" id="muSeek" min="0" max="100" value="0" step="0.1" aria-label="Posisi lagu"><span id="muDur">0:30</span></div>
       <input type="range" class="mu-vol" id="muVol" min="0" max="100" value="80" aria-label="Volume">
@@ -158,7 +156,7 @@
       shown = tab === "favs" ? favs : results;
       const el = q("#muList");
       if (!shown.length) {
-        el.innerHTML = `<p class="hint">${tab === "favs" ? "Belum ada favorit. Tekan ♡ pada lagu untuk menyimpannya." : "Belum ada pencarian."}</p>`;
+        el.innerHTML = `<p class="hint">${tab === "favs" ? "Belum ada favorit. Tekan ikon hati pada lagu untuk menyimpannya." : "Belum ada pencarian."}</p>`;
         return;
       }
       el.innerHTML = shown.map((t, i) => {
@@ -169,8 +167,8 @@
           ${artHtml(t)}
           <div class="mu-meta"><strong>${esc(t.title)}</strong><small>${esc(t.artist)}${t.album ? " · " + esc(t.album) : ""}${t.sec ? " · " + fmtSec(t.sec) : ""}</small>${tag}</div>
           <div class="mu-acts">
-            <button class="btn btn-sm" data-play="${i}" type="button" ${playable ? "" : "disabled"}>▶</button>
-            <button class="btn btn-sm${isFav(t.key) ? " on" : ""}" data-fav="${i}" type="button" aria-label="Favorit">${isFav(t.key) ? "♥" : "♡"}</button>
+            <button class="btn btn-sm" data-play="${i}" type="button" ${playable ? "" : "disabled"}>${ico("play")}</button>
+            <button class="btn btn-sm${isFav(t.key) ? " on" : ""}" data-fav="${i}" type="button" aria-label="Favorit">${ico(isFav(t.key) ? "heart" : "heartOff")}</button>
           </div></div>`;
       }).join("");
     }
@@ -180,10 +178,10 @@
       q("#muArt").innerHTML = artHtml(t);
       q("#muTitle").textContent = t.title;
       q("#muArtist").textContent = t.artist;
-      q("#muFav").textContent = isFav(t.key) ? "♥" : "♡";
+      q("#muFav").innerHTML = ico(isFav(t.key) ? "heart" : "heartOff");
       q("#muFav").classList.toggle("on", isFav(t.key));
       const playing = curMode === "preview" && !pv.paused;
-      q("#muPlay").textContent = playing ? "❚❚" : "▶";
+      q("#muPlay").innerHTML = ico(playing ? "pause" : "play");
       q("#muPrev").disabled = !hasNeighbor(-1);
       q("#muNext").disabled = !hasNeighbor(1);
       setMediaSession(t);
@@ -221,6 +219,8 @@
         box.hidden = true;
         return;
       }
+      const guard = N.security.check("https://open.spotify.com/embed/track/" + id, "frame");
+      if (!guard.ok) { N.core.toast("Spotify diblokir: " + guard.reason, "err"); return; }
       box.hidden = false;
       const uri = "spotify:track:" + id;
       loadSpotifyApi((api) => {
@@ -239,6 +239,8 @@
       cur = t;
       N.core.trackTool("ambient", "music");
       if (t.src === "itunes" && t.preview) {
+        const guard = N.security.check(t.preview, "media");
+        if (!guard.ok) { N.core.toast("Pratinjau diblokir: " + guard.reason, "err"); return; }
         setSpotify("");
         curMode = "preview";
         q("#muSeek").disabled = false;
@@ -278,7 +280,7 @@
       else favs = [{ key: t.key, src: t.src, title: t.title, artist: t.artist, album: t.album, art: t.art, sec: t.sec, preview: t.preview, spId: t.spId, link: t.link }, ...favs];
       saveFavs(favs);
       updateFavCount();
-      if (cur) q("#muFav").textContent = isFav(cur.key) ? "♥" : "♡";
+      if (cur) q("#muFav").innerHTML = ico(isFav(cur.key) ? "heart" : "heartOff");
       renderList();
     }
 
@@ -339,8 +341,8 @@
       if (e.target.closest("#muFav")) { toggleFav(cur); return; }
     });
 
-    pv.addEventListener("play", () => { q("#muPlay").textContent = "❚❚"; });
-    pv.addEventListener("pause", () => { q("#muPlay").textContent = "▶"; });
+    pv.addEventListener("play", () => { q("#muPlay").innerHTML = ico("pause"); });
+    pv.addEventListener("pause", () => { q("#muPlay").innerHTML = ico("play"); });
     pv.addEventListener("timeupdate", () => {
       if (curMode !== "preview") return;
       const d = pv.duration || 0;
@@ -348,7 +350,7 @@
       q("#muDur").textContent = d ? fmtSec(d) : "0:30";
       q("#muSeek").value = d ? String((pv.currentTime / d) * 100) : "0";
     });
-    pv.addEventListener("ended", () => { q("#muPlay").textContent = "▶"; step(1); });
+    pv.addEventListener("ended", () => { q("#muPlay").innerHTML = ico("play"); step(1); });
     q("#muSeek").addEventListener("input", (e) => {
       const d = pv.duration;
       if (curMode === "preview" && d) pv.currentTime = (Number(e.target.value) / 100) * d;

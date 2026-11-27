@@ -1,6 +1,8 @@
 /* NEXUS TOOLBOX — JavaScript Code Protector (local transforms only) */
 (function (N) {
   "use strict";
+
+  const ico = (name, cls) => (N.icons ? N.icons.svg(name, cls) : "");
   const { escapeHtml: esc } = N.core;
   const tokenize = N.codeTools.tokenizeJS;
   const minifyJS = N.codeTools.minifyJS;
@@ -206,11 +208,14 @@
     crypto.getRandomValues(b);
     return Array.from(b, (x) => x.toString(16).padStart(2, "0")).join("");
   }
-  // Setara crypto.randomInt(min, max): hasil di [min, max).
-  function randInt(min, max) {
-    const r = new Uint32Array(1);
-    crypto.getRandomValues(r);
-    return min + (r[0] % (max - min));
+  // Checksum ringan untuk mendeteksi payload yang diubah (anti-tamper dasar).
+  function fnv1a(str) {
+    let h = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) {
+      h ^= str.charCodeAt(i);
+      h = Math.imul(h, 0x01000193) >>> 0;
+    }
+    return h >>> 0;
   }
   function toBase64(bytes) {
     let bin = "";
@@ -243,94 +248,67 @@
     }
     return out;
   }
-  function shuffleIndices(n, seed) {
+  // Fisher-Yates dengan RNG kriptografi (bukan LCG yang bisa diprediksi).
+  function shuffleIndices(n) {
     const idx = [];
     for (let i = 0; i < n; i++) idx.push(i);
-    let s = seed;
+    const rnd = new Uint32Array(n);
+    crypto.getRandomValues(rnd);
     for (let i = n - 1; i > 0; i--) {
-      s = (s * 9301 + 49297) % 233280;
-      const j = s % (i + 1);
-      [idx[i], idx[j]] = [idx[j], idx[i]];
+      const j = rnd[i] % (i + 1);
+      const tmp = idx[i]; idx[i] = idx[j]; idx[j] = tmp;
     }
     return idx;
   }
+  function randomHexKey(bytes, parts) {
+    const hex = randHex(bytes);
+    const out = [];
+    for (let i = 0; i < parts; i++) out.push(hex.substring(Math.floor(hex.length * i / parts), Math.floor(hex.length * (i + 1) / parts)));
+    const order = shuffleIndices(parts);
+    return { hex, shuffled: order.map((i) => out[i]), order };
+  }
 
-  // Wrapper VM (port dari plugin enc). Payload dienkripsi XOR (+ RC4 di hard/extreme),
-  // dipecah & diacak. Decoder pure JS (Uint8Array + TextDecoder) → jalan di browser & Node.
   function vmEncrypt(sourceCode, level) {
     const isHard = level === "hard" || level === "extreme";
     const isExtreme = level === "extreme";
 
-    const key1 = randHex(32);
-    const key2 = randHex(32);
+    // Setiap proses memakai key & urutan acak baru dari crypto.getRandomValues.
+    const key1 = randomHexKey(32, 4);
+    const key2 = isHard ? randomHexKey(32, isExtreme ? 8 : 6) : null;
 
-    let encBuf = xorEncrypt(sourceCode, key1);
-    if (isHard) encBuf = rc4(encBuf, key2);
-
+    let encBuf = xorEncrypt(sourceCode, key1.hex);
+    if (isHard) encBuf = rc4(encBuf, key2.hex);
     const encB64 = toBase64(encBuf);
-    const fullKey = isHard ? (key1 + key2) : key1;
 
-    const numParts = isExtreme ? 8 : (isHard ? 6 : 4);
-    const parts = [];
-    for (let i = 0; i < numParts; i++) {
-      const start = Math.floor(fullKey.length * i / numParts);
-      const end = Math.floor(fullKey.length * (i + 1) / numParts);
-      parts.push(fullKey.substring(start, end));
-    }
-
-    const seed = randInt(100000, 999999);
-    const order = shuffleIndices(numParts, seed);
-    const shuffledParts = order.map((i) => parts[i]);
-
+    const numChunks = isExtreme ? 8 : 4;
     const chunkSize = isExtreme ? 48 : (isHard ? 96 : 128);
     const chunks = [];
-    for (let i = 0; i < encB64.length; i += chunkSize) {
-      chunks.push(encB64.substring(i, i + chunkSize));
-    }
-    const chunkOrder = shuffleIndices(chunks.length, seed ^ 0xA5A5A5);
+    for (let i = 0; i < encB64.length; i += chunkSize) chunks.push(encB64.substring(i, i + chunkSize));
+    const chunkOrder = shuffleIndices(chunks.length);
     const shuffledChunks = chunkOrder.map((i) => chunks[i]);
-    const chunkCount = chunks.length;
+    const checksum = fnv1a(encB64 + key1.hex + (key2 ? key2.hex : ""));
 
-    // Pure-JS helpers (no Buffer dependency)
     const common = `
-var _0x1a=${JSON.stringify(shuffledChunks)};
-var _0x2b=${seed};
-var _0x3c=${chunkCount};
-var _0x4d=${JSON.stringify(shuffledParts)};
-var _0x5e=${JSON.stringify(order)};
-function _0xb64(s){if(typeof atob==="function"){var bin=atob(s);var u=new Uint8Array(bin.length);for(var i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return u;}if(typeof Buffer!=="undefined")return new Uint8Array(Buffer.from(s,"base64"));throw new Error("no b64");}
-function _0xutf(u){if(typeof TextDecoder!=="undefined")return new TextDecoder().decode(u);if(typeof Buffer!=="undefined")return Buffer.from(u).toString("utf8");var s="";for(var i=0;i<u.length;i++)s+=String.fromCharCode(u[i]);return decodeURIComponent(escape(s));}
-function _0x7g(){var arr=new Array(_0x3c),s=_0x2b^0xA5A5A5,idx=[];for(var i=0;i<_0x3c;i++)idx.push(i);for(var i=idx.length-1;i>0;i--){s=(s*9301+49297)%233280;var j=s%(i+1),t=idx[i];idx[i]=idx[j];idx[j]=t;}for(var i=0;i<idx.length;i++)arr[idx[i]]=_0x1a[i];return arr.join("");}
-function _0x8h(parts,order){var out=new Array(parts.length);for(var i=0;i<order.length;i++)out[order[i]]=parts[i];return out.join("");}
-function _0x9i(s,k){var b=_0xb64(s),kb=new TextEncoder?new TextEncoder().encode(k):(function(){var a=new Uint8Array(k.length);for(var i=0;i<k.length;i++)a[i]=k.charCodeAt(i);return a;})(),r=new Uint8Array(b.length);for(var i=0;i<b.length;i++)r[i]=b[i]^kb[i%kb.length];return r;}
+var _c=${JSON.stringify(shuffledChunks)};
+var _co=${JSON.stringify(chunkOrder)};
+var _p1=${JSON.stringify(key1.shuffled)};
+var _po1=${JSON.stringify(key1.order)};
+${isHard ? `var _p2=${JSON.stringify(key2.shuffled)};\nvar _po2=${JSON.stringify(key2.order)};` : ""}
+var _h=${checksum};
+function _b64(s){if(typeof atob==="function"){var b=atob(s),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;}if(typeof Buffer!=="undefined")return new Uint8Array(Buffer.from(s,"base64"));throw new Error("Base64 tidak tersedia");}
+function _utf(u){if(typeof TextDecoder!=="undefined")return new TextDecoder().decode(u);if(typeof Buffer!=="undefined")return Buffer.from(u).toString("utf8");var s="";for(var i=0;i<u.length;i++)s+=String.fromCharCode(u[i]);return decodeURIComponent(escape(s));}
+function _te(k){if(typeof TextEncoder!=="undefined")return new TextEncoder().encode(k);var a=new Uint8Array(k.length);for(var i=0;i<k.length;i++)a[i]=k.charCodeAt(i);return a;}
+function _ord(parts,order){var out=new Array(parts.length);for(var i=0;i<order.length;i++)out[order[i]]=parts[i];return out.join("");}
+function _chk(s){var h=0x811c9dc5;for(var i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193)>>>0;}return h>>>0;}
+function _xor(s,k){var b=_b64(s),kb=_te(k),r=new Uint8Array(b.length);for(var i=0;i<b.length;i++)r[i]=b[i]^kb[i%kb.length];return r;}
+function _rc4(data,key){var s=new Uint8Array(256);for(var i=0;i<256;i++)s[i]=i;var kb=_te(key),j=0;for(var i=0;i<256;i++){j=(j+s[i]+kb[i%kb.length])&255;var t=s[i];s[i]=s[j];s[j]=t;}var out=new Uint8Array(data.length),a=0,b=0;for(var k=0;k<data.length;k++){a=(a+1)&255;b=(b+s[a])&255;var t2=s[a];s[a]=s[b];s[b]=t2;out[k]=data[k]^s[(s[a]+s[b])&255];}return out;}
 `;
 
-    const rc4Dec = `
-function _0x9r(data,key){var s=new Uint8Array(256);for(var i=0;i<256;i++)s[i]=i;var kb=new TextEncoder?new TextEncoder().encode(key):(function(){var a=new Uint8Array(key.length);for(var i=0;i<key.length;i++)a[i]=key.charCodeAt(i);return a;})();var j=0;for(var i=0;i<256;i++){j=(j+s[i]+kb[i%kb.length])&255;var t=s[i];s[i]=s[j];s[j]=t;}var out=new Uint8Array(data.length),a=0,b=0;for(var k=0;k<data.length;k++){a=(a+1)&255;b=(b+s[a])&255;var t2=s[a];s[a]=s[b];s[b]=t2;out[k]=data[k]^s[(s[a]+s[b])&255];}return out;}
-`;
+    const decrypt = isHard
+      ? `var _fk1=_ord(_p1,_po1),_fk2=_ord(_p2,_po2),_pl64=_ord(_c,_co);\nif(_chk(_pl64+_fk1+_fk2)!==_h)throw new Error("Integritas payload gagal — file mungkin diubah.");\nvar _pl=_utf(_rc4(_xor(_pl64,_fk1),_fk2));`
+      : `var _fk1=_ord(_p1,_po1),_pl64=_ord(_c,_co);\nif(_chk(_pl64+_fk1)!==_h)throw new Error("Integritas payload gagal — file mungkin diubah.");\nvar _pl=_utf(_xor(_pl64,_fk1));`;
 
-    const antiDebug = isHard ? `
-(function(){var n=0,t=setInterval(function(){var s=Date.now();debugger;if(Date.now()-s>100){n++;if(n>3){var w=Date.now();while(Date.now()-w<200){}}}},3000);if(t&&typeof t.unref==="function")t.unref();})();` : "";
-
-    // Dual runtime: inject Node globals if present, otherwise just eval the decoded source
-    const execCode = isHard ? `
-var _fk=_0x8h(_0x4d,_0x5e);
-var _k1=_fk.substring(0,64);
-var _k2=_fk.substring(64);
-var _b1=_0x9i(_0x7g(),_k1);
-var _pl=_0xutf(_0x9r(_b1,_k2));
-try{
-  if(typeof require!=="undefined"||typeof module!=="undefined"){
-    var _fn=new Function("require","module","exports","__dirname","__filename","global",_pl);
-    var _m={exports:{}};
-    _fn(typeof require!=="undefined"?require:null,_m,_m.exports,typeof __dirname!=="undefined"?__dirname:".",typeof __filename!=="undefined"?__filename:"main.js",typeof global!=="undefined"?global:{});
-  }else{
-    (0,eval)(_pl);
-  }
-}catch(e){if(typeof console!=="undefined")console.error("[VM]",e&&e.message||e);}
-` : `
-var _fk=_0x8h(_0x4d,_0x5e);
-var _pl=_0xutf(_0x9i(_0x7g(),_fk));
+    const exec = `
 try{
   if(typeof require!=="undefined"||typeof module!=="undefined"){
     var _fn=new Function("require","module","exports","__dirname","__filename","global",_pl);
@@ -341,9 +319,76 @@ try{
   }
 }catch(e){if(typeof console!=="undefined")console.error("[VM]",e&&e.message||e);}
 `;
-
-    return `(function(){\n'use strict';\n${antiDebug}\n${common}\n${isHard ? rc4Dec : ""}\n${execCode}\n})();`;
+    return `(function(){\n'use strict';\n${common}\n${decrypt}\n${exec}\n})();`;
   }
+
+  /* AES-256-GCM + PBKDF2: sandi asli tidak bisa dibaca tanpa passphrase/key.
+     GCM memberi authenticated encryption, jadi perubahan 1 bit pun gagal saat decrypt. */
+  async function aesEncrypt(sourceCode, mode, input) {
+    const wc = (typeof window !== "undefined" && window.crypto) || (typeof globalThis !== "undefined" && globalThis.crypto);
+    if (!wc || !wc.subtle) throw new Error("Web Crypto tidak tersedia. Buka lewat HTTPS atau localhost.");
+    const withPass = mode === "aes_pass";
+    let secret;
+    if (withPass) {
+      secret = String((input && input.passphrase) || "");
+      if (secret.length < 8) throw new Error("Passphrase minimal 8 karakter.");
+    } else {
+      secret = randHex(32);
+    }
+
+    const salt = wc.getRandomValues(new Uint8Array(16));
+    const iv = wc.getRandomValues(new Uint8Array(12));
+    const iterations = 310000;
+    const baseKey = await wc.subtle.importKey("raw", te.encode(secret), "PBKDF2", false, ["deriveKey"]);
+    const aesKey = await wc.subtle.deriveKey(
+      { name: "PBKDF2", salt, iterations, hash: "SHA-256" },
+      baseKey,
+      { name: "AES-GCM", length: 256 },
+      false,
+      ["encrypt"]
+    );
+    const cipher = new Uint8Array(await wc.subtle.encrypt({ name: "AES-GCM", iv, tagLength: 128 }, aesKey, te.encode(sourceCode)));
+    const saltB64 = toBase64(salt), ivB64 = toBase64(iv), ctB64 = toBase64(cipher);
+    const checksum = fnv1a(saltB64 + ivB64 + ctB64 + iterations);
+
+    let passRuntime;
+    if (withPass) {
+      passRuntime = 'typeof prompt==="function"?prompt("Passphrase untuk membuka payload ini:"):(typeof process!=="undefined"&&process.env&&process.env.NEXUS_PASSPHRASE)||""';
+    } else {
+      const pieces = [];
+      const count = 6;
+      for (let i = 0; i < count; i++) pieces.push(secret.substring(Math.floor(secret.length * i / count), Math.floor(secret.length * (i + 1) / count)));
+      const order = shuffleIndices(count);
+      passRuntime = `_ord(${JSON.stringify(order.map((i) => pieces[i]))},${JSON.stringify(order)})`;
+    }
+
+    return `(async function(){
+'use strict';
+var _s=${JSON.stringify(saltB64)},_iv=${JSON.stringify(ivB64)},_ct=${JSON.stringify(ctB64)},_it=${iterations},_h=${checksum};
+function _b64(s){if(typeof atob==="function"){var b=atob(s),u=new Uint8Array(b.length);for(var i=0;i<b.length;i++)u[i]=b.charCodeAt(i);return u;}if(typeof Buffer!=="undefined")return new Uint8Array(Buffer.from(s,"base64"));throw new Error("Base64 tidak tersedia");}
+function _utf(u){if(typeof TextDecoder!=="undefined")return new TextDecoder().decode(u);if(typeof Buffer!=="undefined")return Buffer.from(u).toString("utf8");var s="";for(var i=0;i<u.length;i++)s+=String.fromCharCode(u[i]);return decodeURIComponent(escape(s));}
+function _ord(parts,order){var out=new Array(parts.length);for(var i=0;i<order.length;i++)out[order[i]]=parts[i];return out.join("");}
+function _chk(s){var h=0x811c9dc5;for(var i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,0x01000193)>>>0;}return h>>>0;}
+var _pf=${passRuntime};
+if(!_pf)throw new Error("Passphrase dibutuhkan.");
+if(_chk(_s+_iv+_ct+_it)!==_h)throw new Error("Integritas payload gagal — file mungkin diubah.");
+var _cr=globalThis.crypto||(typeof require!=="undefined"?require("crypto").webcrypto:null);
+if(!_cr||!_cr.subtle)throw new Error("Web Crypto tidak tersedia di runtime ini.");
+var _km=await _cr.subtle.importKey("raw",new TextEncoder().encode(_pf),"PBKDF2",false,["deriveKey"]);
+var _key=await _cr.subtle.deriveKey({name:"PBKDF2",salt:_b64(_s),iterations:_it,hash:"SHA-256"},_km,{name:"AES-GCM",length:256},false,["decrypt"]);
+var _src=_utf(new Uint8Array(await _cr.subtle.decrypt({name:"AES-GCM",iv:_b64(_iv),tagLength:128},_key,_b64(_ct))));
+try{
+  if(typeof require!=="undefined"||typeof module!=="undefined"){
+    var _fn=new Function("require","module","exports","__dirname","__filename","global",_src);
+    var _m={exports:{}};
+    _fn(typeof require!=="undefined"?require:null,_m,_m.exports,typeof __dirname!=="undefined"?__dirname:".",typeof __filename!=="undefined"?__filename:"main.js",typeof global!=="undefined"?global:{});
+  }else{
+    (0,eval)(_src);
+  }
+}catch(e){if(typeof console!=="undefined")console.error("[AES]",e&&e.message||e);}
+})().catch(function(e){if(typeof console!=="undefined")console.error("[AES]",e&&e.message||e);});`;
+  }
+
 
   // Karakter/generator identifier dari plugin enc (JSCONFUSER CONFIGS).
   const MANDARIN_CHARS = Array.from("龙虎风云山河天地雷电火水木金土星月日光影峰泉林海雪霜雾冰焰石");
@@ -351,24 +396,35 @@ try{
   const JAPAN_CHARS = Array.from("あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん");
   const JAPAN_ARAB_CHARS = JAPAN_CHARS.concat(ARAB_CHARS);
   const ALNUM = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+  function randIndex(max) {
+    const r = new Uint32Array(1);
+    crypto.getRandomValues(r);
+    return r[0] % max;
+  }
   const randLenBetween = (chars, min, max) => {
-    const length = Math.floor(Math.random() * (max - min + 1)) + min;
+    const length = randIndex(max - min + 1) + min;
     let s = "";
-    for (let i = 0; i < length; i++) s += chars[Math.floor(Math.random() * chars.length)];
+    for (let i = 0; i < length; i++) s += chars[randIndex(chars.length)];
     return s;
   };
 
   // Pilihan enc, nama dan command disesuaikan dari plugin enc bot.
   const ENC_OPTIONS = [
     { id: "vm_normal", cmd: ".encnormal", name: "Enkripsi VM Normal", input: null,
-      desc: "Payload di-XOR key 64-hex, dipecah & diacak. Decoder pure JS (browser + Node). Source asli tidak terlihat.",
+      desc: "Payload di-XOR key 64-hex, dipecah & diacak dengan RNG kriptografi + checksum anti-tamper. Decoder pure JS.",
       run: (src) => ({ output: vmEncrypt(src, "normal") }), prefix: "enc-vm_normal-" },
     { id: "vm_hard", cmd: ".enchard", name: "Enkripsi VM Hard", input: null,
-      desc: "XOR + RC4 dua key, anti-debug, key 6 bagian. Source benar-benar terenkripsi, hanya jalan setelah decode runtime.",
+      desc: "XOR + RC4 dua key, 6 bagian, urutan acak kriptografi + checksum. Terenkripsi saat disimpan, decode saat runtime.",
       run: (src) => ({ output: vmEncrypt(src, "hard") }), prefix: "enc-vm_hard-" },
     { id: "vm_extreme", cmd: ".encextreme", name: "Enkripsi VM Extreme", input: null,
-      desc: "Sama hard + 8 bagian key + chunk lebih kecil. Paling kuat di Enc Center (masih pure client-side).",
-      run: (src) => ({ output: vmEncrypt(src, "extreme") }), prefix: "enc-vm_extreme-" },
+      desc: "XOR+RC4, 8 bagian key, chunk kecil, urutan acak kriptografi + checksum anti-tamper.",
+      run: (src) => Promise.resolve({ output: vmEncrypt(src, "extreme") }), prefix: "enc-vm_extreme-" },
+    { id: "aes_pass", cmd: ".encaes", name: "AES-GCM + Passphrase", input: "passphrase",
+      desc: "AES-256-GCM + PBKDF2-SHA256 (310k putaran), salt & IV acak. Kode hanya terbuka dengan passphrase saat runtime — paling aman untuk rahasia.",
+      run: async (src, input) => ({ output: await aesEncrypt(src, "aes_pass", input) }), prefix: "enc-aes_pass-" },
+    { id: "aes_auto", cmd: ".encaesauto", name: "AES-GCM Auto-Run", input: null,
+      desc: "AES-256-GCM + PBKDF2 dengan key acak tersemat terpecah. Langsung jalan tanpa prompt, tapi key tetap bisa diekstrak dari file.",
+      run: async (src) => ({ output: await aesEncrypt(src, "aes_auto", {}) }), prefix: "enc-aes_auto-" },
     { id: "quantum", cmd: ".encquantum", name: "Obfuscate Quantum", input: null,
       desc: "Identifier 'qV_' + hex acak, string dipecah + Unicode escape, angka → hex. Mirip gaya Quantum bot.",
       gen: () => () => "qV_" + randHex(4), split: true, unicode: true, hex: true,
@@ -395,9 +451,9 @@ try{
       prefix: (name) => `enc-custom-${name}-` }
   ];
   function randLenAlnum() {
-    const suffixLen = Math.floor(Math.random() * 3) + 2;
+    const suffixLen = randIndex(3) + 2;
     let s = "";
-    for (let i = 0; i < suffixLen; i++) s += ALNUM[Math.floor(Math.random() * ALNUM.length)];
+    for (let i = 0; i < suffixLen; i++) s += ALNUM[randIndex(ALNUM.length)];
     return s;
   }
   const ENC_IDS = new Set(ENC_OPTIONS.map((p) => p.id));
@@ -427,7 +483,7 @@ try{
   }
 
   // Jalankan satu pilihan enc. input: { name } untuk Custom Prefix.
-  function encTransform(id, code, input, fileName) {
+  async function encTransform(id, code, input, fileName) {
     const p = ENC_OPTIONS.find((x) => x.id === id);
     if (!p) throw new Error("Pilihan tidak dikenali.");
     const src = String(code || "");
@@ -437,18 +493,22 @@ try{
     if (p.input === "name" && !/^[a-zA-Z0-9_]+$/.test(name)) {
       throw new Error("Format Salah! Gunakan format: .enccustom NamaPrefix (huruf, angka, atau _).");
     }
+    if (p.input === "passphrase" && String((input && input.passphrase) || "").length < 8) {
+      throw new Error("Passphrase minimal 8 karakter. Gunanya untuk membuka payload di runtime.");
+    }
     const base = String(fileName || "source.js").replace(/[/\\?%*:|"<>]/g, "_");
     const file = base.toLowerCase().endsWith(".js") ? base : base + ".js";
     const prefix = typeof p.prefix === "function" ? p.prefix(name) : p.prefix;
     const outName = prefix + file;
 
     if (p.run) {
-      const res = p.run(src);
-      return {
-        output: res.output,
-        warning: "Source dienkripsi (XOR" + (id !== "vm_normal" ? "+RC4" : "") + ") + diacak. Source asli tidak tersimpan di output. Decoder pure JS (browser & Node).",
-        filename: outName
-      };
+      const res = await p.run(src, input);
+      const warning = id === "aes_pass"
+        ? "AES-256-GCM + PBKDF2 aktif. Payload hanya terbuka dengan passphrase yang Anda masukkan saat dijalankan. Simpan passphrase terpisah dari file."
+        : id === "aes_auto"
+          ? "AES-256-GCM aktif, tetapi key tersemat di file agar auto-run. Ini menghalangi pembacaan kasual, BUKAN perlindungan terhadap kriptografi yang ditentukan."
+          : "Source dienkripsi (XOR" + (id === "vm_normal" ? "" : "+RC4") + ") + diacak memakai RNG kriptografi, dengan checksum anti-tamper. Source asli tidak tersimpan di output.";
+      return { output: res.output, warning, filename: outName };
     }
     const cfg = { gen: p.gen(name), split: !!p.split, unicode: !!p.unicode, hex: !!p.hex };
     const core = encCore(src, cfg);
@@ -467,10 +527,10 @@ try{
       <div class="workspace-head">
         <div><span class="eyebrow">Code Protection</span><h1 class="page-title">JavaScript <span class="gradient-text">Code Protector</span></h1>
         <p class="sub">Mode transformasi lokal + Enc Center (port dari plugin enc bot). VM = enkripsi payload sungguhan. Semua jalan di browser, source asli tidak pernah diupload.</p></div>
-        <button class="btn btn-sm btn-ghost" data-act="fav" type="button">☆ Simpan tool</button>
+        <button class="btn btn-sm btn-ghost" data-act="fav" type="button">${ico("starOff")}<span>Simpan tool</span></button>
       </div>
 
-      <div class="notice"><span>ⓘ</span><span><strong>Mode 01–05</strong> hanya menyulitkan pembacaan (bukan enkripsi). <strong>Enc Center → VM Normal/Hard/Extreme</strong> mengenkripsi source (XOR/RC4) sehingga kode asli tidak terlihat di file output. Tetap jangan simpan rahasia/token di client-side JS.</span></div>
+      <div class="notice"><span>${ico("shield")}</span><span><strong>Mode 01–05</strong> hanya menyulitkan pembacaan. <strong>VM Normal/Hard/Extreme</strong> memakai XOR+RC4 dengan RNG kriptografi & checksum; <strong>AES-GCM + Passphrase</strong> adalah satu-satunya mode yang kuncinya TIDAK ikut di file. Tidak ada proteksi client-side yang 100% anti-crack — jangan pernah menyimpan token/rahasia produksi di JavaScript.</span></div>
 
       <div class="section">
         <div class="section-head"><div><span class="eyebrow">Langkah 01</span><h2 class="section-title">Pilih mode processing</h2></div><span class="badge pro">5 mode tersedia</span></div>
@@ -487,11 +547,11 @@ try{
       <div class="section grid grid-2">
         <div class="card card-pad">
           <div class="spread"><div><span class="eyebrow">Langkah 02</span><h3 class="card-title mt-8">Input source</h3></div>
-            <button class="btn btn-sm" data-act="toggle-code" id="toggleCode" type="button">◉ Sembunyikan</button></div>
+            <button class="btn btn-sm" data-act="toggle-code" id="toggleCode" type="button">${ico("eyeOff")}<span>Sembunyikan</span></button></div>
           <p class="hint mt-8">Maksimal 2 MB per file. Hanya file <span class="mono">.js</span> yang diterima.</p>
           <input type="file" id="protectFile" accept=".js,text/javascript,application/javascript" class="hidden">
           <div class="dropzone mt-16" id="dropzone" tabindex="0" role="button" aria-label="Pilih atau tarik file JavaScript">
-            <div class="dz-icon">↥</div><div><strong>Tarik file .js ke sini atau klik untuk pilih</strong><small>Alternatif: tempel kode di textarea di bawah</small></div>
+            <div class="dz-icon">${ico("upload")}</div><div><strong>Tarik file .js ke sini atau klik untuk pilih</strong><small>Alternatif: tempel kode di textarea di bawah</small></div>
           </div>
           <div class="file-chip mt-16" id="fileChip"><span class="fi">JS</span><span id="fileChipText">Belum ada file — menunggu paste atau upload</span></div>
           <label class="field mt-16"><span>Nama file output</span><input type="text" id="outName" placeholder="source.protected.js" autocomplete="off"></label>
@@ -515,10 +575,11 @@ try{
           </div>
           <div class="opts mt-16 hidden" id="encOpts">
             <label class="field hidden" id="encNameField"><span>NamaPrefix (huruf, angka, _)</span><input type="text" id="encName" placeholder="contoh: MySecret" maxlength="40" autocomplete="off"></label>
+            <label class="field hidden" id="encPassField"><span>Passphrase (minimal 8 karakter)</span><input type="password" id="encPass" autocomplete="new-password" spellcheck="false" placeholder="Disimpan hanya di sesi ini"><small class="hint">Passphrase tidak ikut tertanam di file. Simpan terpisah — tanpa itu payload tidak bisa dibuka.</small></label>
           </div>
           <div class="mt-16"><div class="spread tiny muted"><span>Progress</span><span id="progressText">Menunggu input</span></div>
             <div class="progress-line mt-8"><span id="progressBar"></span></div></div>
-          <div class="row mt-16"><button class="btn btn-primary" data-act="process" id="processBtn" type="button">◈ Proses Code</button>
+          <div class="row mt-16"><button class="btn btn-primary" data-act="process" id="processBtn" type="button">${ico("sparkle")}<span>Proses Code</span></button>
             <button class="btn btn-sm" data-act="copy-output" type="button">Salin</button>
             <button class="btn btn-sm" data-act="download" type="button">Unduh</button>
             <button class="btn btn-sm btn-ghost" data-act="reset" type="button">Reset</button></div>
@@ -529,7 +590,7 @@ try{
           </div>
           <div class="notice err mt-16 hidden" id="protectError"></div>
           <div class="divider"></div>
-          <div class="game-help"><strong>Catatan kompatibilitas:</strong> renaming dilewati bila kode memakai <span class="mono">eval</span>, <span class="mono">Function</span>, <span class="mono">with</span>, atau <span class="mono">import()</span> dinamis. Output VM memakai <span class="mono">Buffer</span> sehingga hanya berjalan di Node.js (seperti plugin asalnya). Seluruh output lain adalah JavaScript biasa.</div>
+          <div class="game-help"><strong>Catatan kompatibilitas:</strong> renaming dilewati bila kode memakai <span class="mono">eval</span>, <span class="mono">Function</span>, <span class="mono">with</span>, atau <span class="mono">import()</span> dinamis. Decoder VM/AES memakai Web Crypto bila tersedia (browser modern & Node 18+) dengan fallback ke <span class="mono">Buffer</span> untuk base64 di Node. Mode AES-GCM + Passphrase menanyakan passphrase saat file dijalankan (di Node: <span class="mono">NEXUS_PASSPHRASE</span> environment variable).</div>
         </div>
       </div>`;
 
@@ -574,6 +635,7 @@ try{
       $("#customOpts").classList.toggle("hidden", id !== "custom");
       $("#encOpts").classList.toggle("hidden", !enc || !enc.input);
       $("#encNameField").classList.toggle("hidden", !enc || enc.input !== "name");
+      $("#encPassField").classList.toggle("hidden", !enc || enc.input !== "passphrase");
       result = "";
       encFileName = "";
       output.textContent = "Belum ada output.";
@@ -612,7 +674,7 @@ try{
         await new Promise((r) => { const t = setTimeout(r, 120); timers.push(t); });
         let res;
         if (ENC_IDS.has(selected)) {
-          res = encTransform(selected, source.value, { name: $("#encName").value }, sourceName);
+          res = await encTransform(selected, source.value, { name: $("#encName").value, passphrase: $("#encPass").value }, sourceName);
           encFileName = res.filename;
         } else {
           res = transform(selected, source.value, opts());
@@ -669,14 +731,14 @@ try{
       if (act === "process") process();
       if (act === "fav") {
         const on = N.core.toggleFavorite("js-protector");
-        btn.textContent = on ? "★ Tersimpan tool" : "☆ Simpan tool";
+        btn.innerHTML = ico(on ? "star" : "starOff") + "<span>" + (on ? "Tersimpan tool" : "Simpan tool") + "</span>";
         N.core.toast(on ? "Tool disimpan." : "Dihapus dari favorites.", "ok");
       }
       if (act === "toggle-code") {
         showCode = !showCode;
         source.classList.toggle("hidden", !showCode);
         $("#maskedSource").classList.toggle("hidden", showCode);
-        btn.textContent = showCode ? "◉ Sembunyikan" : "◎ Tampilkan";
+        btn.innerHTML = ico(showCode ? "eyeOff" : "eye") + "<span>" + (showCode ? "Sembunyikan" : "Tampilkan") + "</span>";
         updateSourceInfo();
       }
       if (act === "clear-input") {

@@ -1,6 +1,8 @@
 /* NEXUS TOOLBOX — Game Center */
 (function (N) {
   "use strict";
+
+  const ico = (name, cls) => (N.icons ? N.icons.svg(name, cls) : "");
   const { escapeHtml: esc } = N.core;
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
@@ -24,14 +26,14 @@
   }
   function head(tool, right) {
     return `<div class="workspace-head"><div><span class="eyebrow">Game Center</span><h1 class="page-title">${esc(tool.name)}</h1>
-      <p class="sub">${esc(tool.desc)}</p></div><div class="row">${right || ""}<button class="btn btn-sm btn-ghost" data-game="fav" type="button">☆ Simpan</button></div></div>`;
+      <p class="sub">${esc(tool.desc)}</p></div><div class="row">${right || ""}<button class="btn btn-sm btn-ghost" data-game="fav" type="button">${ico("starOff")}<span>Simpan</span></button></div></div>`;
   }
   function bindFav(host, id) {
     host.addEventListener("click", (e) => {
       const b = e.target.closest('[data-game="fav"]');
       if (!b) return;
       const on = N.core.toggleFavorite(id);
-      b.textContent = on ? "★ Tersimpan" : "☆ Simpan";
+      b.innerHTML = ico(on ? "star" : "starOff") + "<span>" + (on ? "Tersimpan" : "Simpan") + "</span>";
       N.core.toast(on ? "Disimpan." : "Dihapus.", "ok");
     });
   }
@@ -58,7 +60,7 @@
     host.innerHTML = head(tool, diffControl(diff)) + `<div class="card card-pad game-stage">
       <div class="game-head">${scoreBar([["Rekor", best("reaction", true) + " ms"], ["Rata-rata", "—"]])}<span class="badge" id="rxRound">Babak 0/${totalRounds}</span></div>
       <div class="game-body"><div class="reaction-pad" id="rxPad" role="button" tabindex="0"><strong id="rxText">Tekan tombol untuk mulai</strong><small class="muted" id="rxSub">5 babak · pengukuran dalam milidetik</small></div>
-      <div class="row mt-16"><button class="btn btn-primary" data-rx="start" type="button">▶ Ulangi tes</button><span class="game-log" id="rxLog"></span></div></div></div>`;
+      <div class="row mt-16"><button class="btn btn-primary" data-rx="start" type="button">${ico("play")}<span>Ulangi tes</span></button><span class="game-log" id="rxLog"></span></div></div></div>`;
     const pad = $("#rxPad", host), text = $("#rxText", host), sub = $("#rxSub", host);
     function delays() { return diff === "easy" ? [1200, 3000] : diff === "hard" ? [500, 1700] : [800, 2400]; }
     function nextRound() {
@@ -73,7 +75,7 @@
         phase = "go"; goAt = performance.now();
         pad.className = "reaction-pad go";
         text.textContent = "KLICK SEKARANG!";
-        sub.textContent = "⚡";
+        sub.innerHTML = ico("bolt");
       }, lo + Math.random() * (hi - lo));
     }
     function finish() {
@@ -126,11 +128,11 @@
     host.innerHTML = head(tool, diffControl(diff)) + `<div class="card card-pad game-stage">
       <div class="game-head">${scoreBar([["Rekor", best("memory")], ["Salah", "0"]])}<span class="badge" id="memState">Menunggu</span></div>
       <div class="game-body"><div class="board" id="memBoard"></div>
-      <div class="row mt-16"><button class="btn btn-primary" data-mem="start" type="button">▶ Mulai</button><span class="game-log" id="memLog">Hafal ubin yang menyala, lalu klik semuanya.</span></div></div></div>`;
+      <div class="row mt-16"><button class="btn btn-primary" data-mem="start" type="button">${ico("play")}<span>Mulai</span></button><span class="game-log" id="memLog">Hafal ubin yang menyala, lalu klik semuanya.</span></div></div></div>`;
     const board = $("#memBoard", host);
     function renderBoard(interactive) {
       board.style.gridTemplateColumns = `repeat(${cols}, minmax(0, 1fr))`;
-      board.innerHTML = Array.from({ length: total }, (_, i) => `<button type="button" class="tile ${lit.includes(i) ? (interactive ? "face" : "lit") : ""} ${picked.includes(i) ? "matched" : ""}" data-i="${i}" ${interactive ? "" : "disabled"}>${picked.includes(i) ? "✓" : ""}</button>`).join("");
+      board.innerHTML = Array.from({ length: total }, (_, i) => `<button type="button" class="tile ${lit.includes(i) ? (interactive ? "face" : "lit") : ""} ${picked.includes(i) ? "matched" : ""}" data-i="${i}" ${interactive ? "" : "disabled"}>${picked.includes(i) ? ico("check") : ""}</button>`).join("");
     }
     function start() {
       clearTimeout(timer);
@@ -154,7 +156,7 @@
       if ($("#memState", host).textContent !== "Tebak!") return;
       if (lit.includes(i)) {
         if (!picked.includes(i)) picked.push(i);
-        t.classList.add("matched"); t.textContent = "✓";
+        t.classList.add("matched"); t.innerHTML = ico("check");
         if (picked.length === lit.length) {
           const sec = (performance.now() - started) / 1000;
           const score = Math.max(10, Math.round(picked.length * 100 - mistakes * 25 - sec * 5));
@@ -200,12 +202,12 @@
       attempts++;
       if (v === target) {
         done = true;
-        $("#nmHint", host).textContent = "🎯 Tepat!";
+        $("#nmHint", host).textContent = "Tepat!";
         $("#nmStatus", host).textContent = `Benar dalam ${attempts} percobaan.`;
         N.core.setScore("number", attempts, false);
         N.core.toast("Tebakan benar dalam " + attempts + " percobaan!", "ok");
       } else {
-        $("#nmHint", host).textContent = v < target ? "↑ Lebih tinggi!" : "↓ Lebih rendah!";
+        $("#nmHint", host).innerHTML = ico(v < target ? "arrowUp" : "arrowDown") + (v < target ? " Lebih tinggi!" : " Lebih rendah!");
         $("#nmStatus", host).textContent = `Percobaan: ${attempts}`;
         input.select();
       }
@@ -237,7 +239,7 @@
     host.innerHTML = head(tool, diffControl(diff)) + `<div class="card card-pad game-stage" style="max-width:520px;margin:auto">
       <div class="game-head">${scoreBar([["Menang", "0"], ["Kalah", "0"], ["Seri", "0"]])}</div>
       <div class="game-body"><div class="board" id="ttBoard" style="grid-template-columns:repeat(3,1fr);max-width:330px"></div>
-      <div class="row mt-16"><button class="btn btn-primary" data-tt="reset" type="button">↻ Main lagi</button><span class="game-log" id="ttLog">Anda sebagai X. Giliran Anda.</span></div></div></div>`;
+      <div class="row mt-16"><button class="btn btn-primary" data-tt="reset" type="button">${ico("refresh")}<span>Main lagi</span></button><span class="game-log" id="ttLog">Anda sebagai X. Giliran Anda.</span></div></div></div>`;
     const WIN = [[0,1,2],[3,4,5],[6,7,8],[0,3,6],[1,4,7],[2,5,8],[0,4,8],[2,4,6]];
     function winner(b) { for (const w of WIN) if (b[w[0]] && b[w[0]] === b[w[1]] && b[w[1]] === b[w[2]]) return b[w[0]]; return b.every(Boolean) ? "D" : null; }
     function minimax(b, player, depth) {
@@ -278,7 +280,7 @@
       if (!w) return;
       over = true;
       const log = $("#ttLog", host);
-      if (w === "X") { rec.wins++; log.textContent = "🎉 Anda menang!"; N.core.toast("Anda menang!", "ok"); }
+      if (w === "X") { rec.wins++; log.textContent = "Anda menang!"; N.core.toast("Anda menang!", "ok"); }
       else if (w === "O") { rec.losses++; log.textContent = "AI menang. Coba lagi."; }
       else { rec.draws++; log.textContent = "Seri."; }
       N.core.state.scores.tictactoe = rec; N.core.save(); N.core.emit("data-changed");
@@ -320,12 +322,12 @@
     let rec = Object.assign({ w: 0, l: 0, d: 0 }, N.core.state.scores.rps || {});
     host.innerHTML = head(tool) + `<div class="card card-pad game-stage" style="max-width:620px;margin:auto">
       <div class="game-head">${scoreBar([["Menang", "0"], ["Kalah", "0"], ["Seri", "0"]])}</div>
-      <div class="game-body" style="text-align:center"><div style="font-size:4rem" id="rpsIcons">✊ · ✋</div>
+      <div class="game-body" style="text-align:center"><div id="rpsIcons">${N.icons.svg("hand", "rps-ico")} <span class="muted">vs</span> ${N.icons.svg("fileText", "rps-ico")}</div>
       <p class="muted" id="rpsLog">Pilih satu untuk melawan AI.</p>
-      <div class="chips" style="justify-content:center"><button class="btn btn-primary" data-rps="0" type="button">✊ Batu</button>
-      <button class="btn btn-primary" data-rps="1" type="button">✋ Kertas</button><button class="btn btn-primary" data-rps="2" type="button">✌ Gunting</button></div>
+      <div class="chips" style="justify-content:center"><button class="btn btn-primary" data-rps="0" type="button">${N.icons.svg("hand")} Batu</button>
+      <button class="btn btn-primary" data-rps="1" type="button">${N.icons.svg("fileText")} Kertas</button><button class="btn btn-primary" data-rps="2" type="button">${N.icons.svg("scissors")} Gunting</button></div>
       <div class="mt-16"><button class="btn btn-sm btn-ghost" data-rps="reset" type="button">Reset statistik</button></div></div></div>`;
-    const NAMES = ["Batu", "Kertas", "Gunting"], ICONS = ["✊", "✋", "✌"];
+    const NAMES = ["Batu", "Kertas", "Gunting"], ICONS = ["hand", "fileText", "scissors"];
     function update() {
       const s = $$(".score-pill strong", host);
       s[0].textContent = rec.w; s[1].textContent = rec.l; s[2].textContent = rec.d;
@@ -341,7 +343,7 @@
       const result = p === ai ? "d" : (p === 0 && ai === 2) || (p === 1 && ai === 0) || (p === 2 && ai === 1) ? "w" : "l";
       rec[result]++;
       N.core.state.scores.rps = rec; N.core.save(); N.core.emit("data-changed");
-      $("#rpsIcons", host).textContent = ICONS[p] + " · " + ICONS[ai];
+      $("#rpsIcons", host).innerHTML = N.icons.svg(ICONS[p], "rps-ico") + ' <span class="muted">vs</span> ' + N.icons.svg(ICONS[ai], "rps-ico");
       $("#rpsLog", host).textContent = `${NAMES[p]} vs ${NAMES[ai]} — ${result === "w" ? "Anda menang!" : result === "l" ? "AI menang." : "Seri."}`;
       update();
     });
@@ -355,7 +357,7 @@
     host.innerHTML = head(tool) + `<div class="card card-pad game-stage" style="max-width:560px;margin:auto">
       <div class="game-head">${scoreBar([["Skor", "0"], ["Rekor", best("2048")]])}</div>
       <div class="game-body"><div class="game2048" id="g2048" style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;aspect-ratio:1"></div>
-      <div class="row mt-16"><button class="btn btn-primary" data-g="new" type="button">↻ Game baru</button><span class="game-log" id="gLog">Gunakan arrow keys, WASD, atau swipe.</span></div></div></div>`;
+      <div class="row mt-16"><button class="btn btn-primary" data-g="new" type="button">${ico("refresh")}<span>Game baru</span></button><span class="game-log" id="gLog">Gunakan arrow keys, WASD, atau swipe.</span></div></div></div>`;
     function spawn() {
       const empty = grid.map((v, i) => v ? -1 : i).filter((i) => i >= 0);
       if (!empty.length) return;
@@ -440,8 +442,8 @@
       <div class="game-head">${scoreBar([["Skor", "0"], ["Rekor", best("snake")]])}
       <div class="segmented" data-diff><button data-d="easy">Lambat</button><button data-d="normal" class="active">Normal</button><button data-d="hard">Cepat</button></div></div>
       <div class="game-body snake-wrap"><canvas id="snakeCanvas" width="${SIZE}" height="${SIZE}"></canvas>
-      <div class="dpad"><button class="up" data-dir="up">↑</button><button class="left" data-dir="left">←</button><button class="down" data-dir="down">↓</button><button class="right" data-dir="right">→</button></div>
-      <div class="row"><button class="btn btn-primary" data-sn="toggle" type="button">▶ Mulai</button><button class="btn" data-sn="reset" type="button">↻ Reset</button><span class="game-log" id="snLog">Arrow keys / WASD / swipe / D-pad.</span></div></div></div>`;
+      <div class="dpad"><button class="up" data-dir="up">${ico("arrowUp")}</button><button class="left" data-dir="left">${ico("arrowLeft")}</button><button class="down" data-dir="down">${ico("arrowDown")}</button><button class="right" data-dir="right">${ico("arrowRight")}</button></div>
+      <div class="row"><button class="btn btn-primary" data-sn="toggle" type="button">${ico("play")}<span>Mulai</span></button><button class="btn" data-sn="reset" type="button">${ico("refresh")}<span>Reset</span></button><span class="game-log" id="snLog">Arrow keys / WASD / swipe / D-pad.</span></div></div></div>`;
     const canvas = $("#snakeCanvas", host), ctx = canvas.getContext("2d");
     function speed() { return N.core.state.settings.difficulty === "easy" ? 180 : N.core.state.settings.difficulty === "hard" ? 85 : 125; }
     function placeFood() {
@@ -466,7 +468,7 @@
       const head = { x: snake[0].x + dir.x, y: snake[0].y + dir.y };
       if (head.x < 0 || head.y < 0 || head.x >= CELLS || head.y >= CELLS || snake.some((s) => s.x === head.x && s.y === head.y)) {
         running = false; dead = true; clearInterval(timer); timer = null;
-        $('[data-sn="toggle"]', host).textContent = "▶ Mulai";
+        $('[data-sn="toggle"]', host).innerHTML = ico("play") + "<span>Mulai</span>";
         $("#snLog", host).textContent = "Game over! Skor: " + score;
         N.core.toast("Snake berakhir: " + score, "info");
         return;
@@ -505,10 +507,10 @@
       }
       const b = e.target.closest('[data-sn="toggle"]');
       if (b) {
-        if (running) { clearInterval(timer); timer = null; running = false; b.textContent = "▶ Lanjut"; }
+        if (running) { clearInterval(timer); timer = null; running = false; b.innerHTML = ico("play") + "<span>Lanjut</span>"; }
         else {
           if (dead) { snake = [{ x: 10, y: 10 }]; dir = nextDir = { x: 1, y: 0 }; score = 0; dead = false; $$(".score-pill strong", host)[0].textContent = 0; placeFood(); }
-          running = true; b.textContent = "❚❚ Jeda";
+          running = true; b.innerHTML = ico("pause") + "<span>Jeda</span>";
           timer = setInterval(step, speed());
         }
       }
@@ -516,7 +518,7 @@
         clearInterval(timer); timer = null; running = false; dead = false;
         snake = [{ x: 10, y: 10 }]; dir = nextDir = { x: 1, y: 0 }; score = 0; placeFood();
         $$(".score-pill strong", host)[0].textContent = 0;
-        $('[data-sn="toggle"]', host).textContent = "▶ Mulai";
+        $('[data-sn="toggle"]', host).innerHTML = ico("play") + "<span>Mulai</span>";
         $("#snLog", host).textContent = "Siap.";
         draw();
       }
@@ -573,7 +575,7 @@
         clearInterval(timer);
         const sec = (performance.now() - started) / 1000;
         const score = Math.max(10, Math.round(answer.length * 50 - sec * 8 - mistakes * 20));
-        $("#scLog", host).textContent = `✅ Benar: ${answer} · Skor ${score} · ${sec.toFixed(1)} dtk`;
+        $("#scLog", host).textContent = `Benar: ${answer} · Skor ${score} · ${sec.toFixed(1)} dtk`;
         N.core.setScore("scramble", score);
         N.core.toast("Kata benar! Skor " + score, "ok");
       } else {
@@ -587,8 +589,8 @@
       <div class="game-head">${scoreBar([["Rekor", best("scramble")], ["Salah", "0"], ["Waktu", "0 dtk"]])}</div>
       <div class="game-body" style="text-align:center"><p class="muted" id="scLog"></p>
       <div id="scWord"></div><div class="scramble-letters" id="scLetters"></div>
-      <div class="row mt-16" style="justify-content:center"><button class="btn btn-primary" data-sc="new" type="button">↻ Kata baru</button>
-      <button class="btn" data-sc="undo" type="button">⌫ Hapus</button><button class="btn" data-sc="check" type="button">✓ Cek</button></div></div></div>`;
+      <div class="row mt-16" style="justify-content:center"><button class="btn btn-primary" data-sc="new" type="button">${ico("refresh")}<span>Kata baru</span></button>
+      <button class="btn" data-sc="undo" type="button">${ico("backspace")}<span>Hapus</span></button><button class="btn" data-sc="check" type="button">${ico("check")}<span>Cek</span></button></div></div></div>`;
     const scoreValues = $$(".score-pill strong", host);
     scoreValues[1].id = "scMistakes";
     scoreValues[2].id = "scTime";
@@ -615,7 +617,7 @@
     host.innerHTML = head(tool, diffControl(diff)) + `<div class="card card-pad game-stage">
       <div class="game-head">${scoreBar([["Skor", "0"], ["Rekor", best("click")], ["Waktu", "30 dtk"]])}</div>
       <div class="game-body"><div class="click-arena" id="clArena"><div class="hint" id="clMsg" style="position:absolute;inset:0;display:grid;place-items:center">Tekan mulai untuk menargetkan</div></div>
-      <div class="row mt-16"><button class="btn btn-primary" data-cl="start" type="button">▶ Mulai</button><span class="game-log" id="clLog">Klik target secepat mungkin. Klik kosong = miss.</span></div></div></div>`;
+      <div class="row mt-16"><button class="btn btn-primary" data-cl="start" type="button">${ico("play")}<span>Mulai</span></button><span class="game-log" id="clLog">Klik target secepat mungkin. Klik kosong = miss.</span></div></div></div>`;
     const arena = $("#clArena", host);
     function moveTarget() {
       const pad = 12;
@@ -683,9 +685,9 @@
       <p class="sub">Sembilan mini-game tanpa backend. Skor terbaik disimpan lokal di perangkat Anda.</p></div>
       <span class="badge pro">${games.length} games</span></div>
       <div class="tool-grid">${games.map((g) => `<button class="tool-card" data-game-id="${g.id}" type="button">
-        <div class="tc-top"><div class="tc-icon">${esc(g.icon)}</div>${g.popular ? '<span class="badge hot">POPULAR</span>' : ""}</div>
+        <div class="tc-top"><div class="tc-icon">${N.icons.game(g.id)}</div>${g.popular ? '<span class="badge hot">POPULAR</span>' : ""}</div>
         <h3>${esc(g.name)}</h3><p>${esc(g.desc)}</p>
-        <div class="tc-foot"><span class="tc-cat">Rekor: ${esc(best(g.id))}</span><span class="badge new">Mainkan →</span></div></button>`).join("")}</div>`;
+        <div class="tc-foot"><span class="tc-cat">Rekor: ${esc(best(g.id))}</span><span class="badge new">Mainkan ${ico("arrowRight")}</span></div></button>`).join("")}</div>`;
     host.addEventListener("click", (e) => {
       const c = e.target.closest("[data-game-id]");
       if (c) location.hash = "#/games/" + c.dataset.gameId;
@@ -696,7 +698,7 @@
     const tool = N.registry.get(id);
     const fn = impl[id];
     if (!tool || !fn || tool.cat !== "game") { index(host); return; }
-    host.innerHTML = `<div class="row mb-8"><button class="btn btn-sm btn-ghost" data-back type="button">← Semua game</button></div><div id="gameHost"></div>`;
+    host.innerHTML = `<div class="row mb-8"><button class="btn btn-sm btn-ghost" data-back type="button">${ico("arrowLeft")}<span>Semua game</span></button></div><div id="gameHost"></div>`;
     host.querySelector('[data-back]').addEventListener("click", () => { location.hash = "#/games"; });
     fn(host.querySelector("#gameHost"), tool);
   }

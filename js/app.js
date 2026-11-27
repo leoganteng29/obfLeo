@@ -5,17 +5,21 @@
   const { escapeHtml: esc } = C;
   const $ = (s, r) => (r || document).querySelector(s);
   const $$ = (s, r) => Array.from((r || document).querySelectorAll(s));
+  const ico = (name) => (N.icons ? N.icons.svg(name) : "");
+  const toolIco = (tool) => (N.icons ? N.icons.tool(tool.id, tool.cat) : esc(tool.icon));
 
   const ROUTES = {
     landing: { title: "NEXUS TOOLBOX", kicker: "WELCOME" },
     dashboard: { title: "Dashboard", kicker: "WORKSPACE" },
     protect: { title: "JS Protector", kicker: "CODE PROTECTION" },
+    ai: { title: "AI Studio", kicker: "CODING PARTNER" },
     tools: { title: "Developer Tools", kicker: "TOOLKIT" },
     utilities: { title: "Utilities", kicker: "EVERYDAY TOOLS" },
     games: { title: "Game Center", kicker: "PLAYGROUND" },
     music: { title: "Music Lounge", kicker: "AMBIENCE" },
     favorites: { title: "Favorites", kicker: "COLLECTION" },
-    history: { title: "Activity History", kicker: "LOCAL LOG" }
+    history: { title: "Activity History", kicker: "LOCAL LOG" },
+    security: { title: "Security Center", kicker: "PRIVACY & DEFENSE" }
   };
 
   /* The three saved accent keys keep their original values for compatibility;
@@ -23,7 +27,10 @@
   const ACCENTS = [
     { value: "violet", label: "Biru langit", color: "#2563eb" },
     { value: "cyan", label: "Biru es", color: "#0369a1" },
-    { value: "blue", label: "Biru royal", color: "#1d4ed8" }
+    { value: "blue", label: "Biru royal", color: "#1d4ed8" },
+    { value: "neon", label: "Ungu neon", color: "#7c3aed" },
+    { value: "emerald", label: "Hijau emerald", color: "#059669" },
+    { value: "rose", label: "Merah mawar", color: "#e11d48" }
   ];
   const PLANE = `<svg viewBox="0 0 32 32" fill="none" aria-hidden="true">
     <path d="M27.5 4.5 3.8 14.1l9.8 3.6 4.1 10.2 9.8-23.4Z" fill="currentColor" />
@@ -74,13 +81,13 @@
   function toolCard(tool, featured) {
     const fav = C.isFavorite(tool.id);
     return `<div class="tool-card ${featured ? "featured" : ""}" data-tool-id="${esc(tool.id)}" role="button" tabindex="0">
-      <div class="tc-top"><div class="tc-icon">${esc(tool.icon)}</div>
+      <div class="tc-top"><div class="tc-icon">${toolIco(tool)}</div>
         ${tool.badge ? `<span class="badge ${tool.badge === "PRO" ? "pro" : "new"}">${esc(tool.badge)}</span>` : ""}
         ${tool.popular ? '<span class="badge hot">POPULAR</span>' : ""}
-        <button class="star-btn ${fav ? "on" : ""}" data-star="${esc(tool.id)}" type="button" aria-label="Favorite" data-tip="Favorite">${fav ? "★" : "☆"}</button>
+        <button class="star-btn ${fav ? "on" : ""}" data-star="${esc(tool.id)}" type="button" aria-label="Favorite" data-tip="Favorite">${ico(fav ? "star" : "starOff")}</button>
       </div>
       <h3>${esc(tool.name)}</h3><p>${esc(tool.desc)}</p>
-      <div class="tc-foot"><span class="tc-cat">${esc(N.registry.category(tool.cat).label)}</span><span class="badge new">Buka →</span></div>
+      <div class="tc-foot"><span class="tc-cat">${esc(N.registry.category(tool.cat).label)}</span><span class="badge new">Buka ${ico("arrowRight")}</span></div>
     </div>`;
   }
   let pendingCategoryFilter = "";
@@ -95,7 +102,7 @@
         e.stopPropagation();
         const on = C.toggleFavorite(star.dataset.star);
         star.classList.toggle("on", on);
-        star.textContent = on ? "★" : "☆";
+        star.innerHTML = ico(on ? "star" : "starOff");
         C.toast(on ? "Ditambahkan ke favorites." : "Dihapus dari favorites.", "ok");
         if ((location.hash || "").startsWith("#/favorites")) renderRoute();
         return;
@@ -136,7 +143,7 @@
         <p class="landing-sub">Fly smarter, build faster</p>
         <button class="btn landing-cta" data-launch type="button">
           <svg viewBox="0 0 32 32" fill="none" aria-hidden="true"><path d="M27.5 4.5 3.8 14.1l9.8 3.6 4.1 10.2 9.8-23.4Z" fill="currentColor" /><path d="M13.6 17.7 27.5 4.5 17.7 27.9" stroke="#bfdbfe" stroke-width="1.3" stroke-linejoin="round" opacity=".8" /></svg>
-          Mulai Terbang →
+          Mulai Terbang ${ico("arrowRight")}
         </button>
       </div>
     </section>`;
@@ -204,10 +211,10 @@
   function statCard(label, value, foot, values, tr, opts) {
     opts = opts || {};
     const badgeClass = tr.dir === "up" ? "" : tr.dir === "down" ? "down" : "flat";
-    const arrow = tr.dir === "up" ? "↗" : tr.dir === "down" ? "↘" : "→";
+    const arrow = ico(tr.dir === "up" ? "arrowUp" : tr.dir === "down" ? "arrowDown" : "arrowRight");
     const pct = tr.dir === "flat" && !tr.pct ? "0%" : `${tr.dir === "up" ? "+" : tr.dir === "down" ? "−" : ""}${tr.pct}%`;
     return `<div class="card stat" ${opts.tip ? `title="${esc(opts.tip)}"` : ""}>
-      <div class="stat-top"><span class="stat-label">${esc(label)}</span><span class="stat-icon">${esc(opts.icon || "➤")}</span></div>
+      <div class="stat-top"><span class="stat-label">${esc(label)}</span><span class="stat-icon">${ico(opts.icon || "arrowUp")}</span></div>
       <div class="spread"><div class="stat-value ${opts.text ? "is-text" : ""}">${esc(value)}</div><span class="stat-badge ${badgeClass}">${arrow} ${pct}</span></div>
       <div class="stat-foot">${esc(foot)}</div><div class="stat-bottom">${sparkline(values)}</div>
     </div>`;
@@ -300,10 +307,10 @@
     const dateLabel = new Intl.DateTimeFormat("id-ID", { weekday: "short", day: "numeric", month: "short" }).format(new Date()).replace(".", "");
 
     const insights = [
-      { icon: "◆", tone: "blue", title: favoriteTool ? `Tool favoritmu: ${favoriteTool.name}` : "Belum ada tool favorit", go: favoriteTool ? `${favoriteTool.route}/${favoriteTool.id}` : "tools", action: "Lihat" },
-      { icon: "✦", tone: "cyan", title: dailyDone ? "Daily challenge selesai hari ini" : "Daily challenge hari ini belum selesai", go: "utilities/daily-challenge", action: dailyDone ? "Lihat" : "Coba" },
-      { icon: "↗", tone: "indigo", title: lastTool ? `Terakhir dibuka: ${lastTool.name}` : "Belum ada tool yang dibuka", go: lastTool ? `${lastTool.route}/${lastTool.id}` : "tools", action: "Lanjutkan" },
-      { icon: "◈", tone: "amber", title: lastGame ? `Game terakhir: ${lastGame.name}` : "Belum ada game dimainkan", go: "games", action: "Buka" }
+      { icon: "diamond", tone: "blue", title: favoriteTool ? `Tool favoritmu: ${favoriteTool.name}` : "Belum ada tool favorit", go: favoriteTool ? `${favoriteTool.route}/${favoriteTool.id}` : "tools", action: "Lihat" },
+      { icon: "sparkle", tone: "cyan", title: dailyDone ? "Daily challenge selesai hari ini" : "Daily challenge hari ini belum selesai", go: "utilities/daily-challenge", action: dailyDone ? "Lihat" : "Coba" },
+      { icon: "arrowUp", tone: "indigo", title: lastTool ? `Terakhir dibuka: ${lastTool.name}` : "Belum ada tool yang dibuka", go: lastTool ? `${lastTool.route}/${lastTool.id}` : "tools", action: "Lanjutkan" },
+      { icon: "shield", tone: "amber", title: lastGame ? `Game terakhir: ${lastGame.name}` : "Belum ada game dimainkan", go: "games", action: "Buka" }
     ];
 
     host.innerHTML = `
@@ -315,7 +322,7 @@
         <div class="dash-actions">
           <div class="dash-tools">
             <span class="dash-date"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="15" rx="3" stroke="currentColor" stroke-width="1.7"/><path d="M8 3v5m8-5v5M3.5 10h17" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>${esc(dateLabel)}</span>
-            <label class="dash-search" data-dash-search><svg viewBox="0 0 24 24" fill="none"><circle cx="10.8" cy="10.8" r="6.3" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4.4 4.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><input type="search" placeholder="Cari tools..." aria-label="Cari tools" readonly><kbd>⌘K</kbd></label>
+            <label class="dash-search" data-dash-search><svg viewBox="0 0 24 24" fill="none"><circle cx="10.8" cy="10.8" r="6.3" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4.4 4.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><input type="search" placeholder="Cari tools..." aria-label="Cari tools" readonly><kbd>Ctrl K</kbd></label>
             <button class="icon-btn" data-notify type="button" aria-label="Notifikasi" data-tip="Notifikasi"><svg viewBox="0 0 24 24" fill="none"><path d="M18 9a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M10 19a2 2 0 0 0 4 0" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
             <button class="btn btn-outline-plus" data-go="tools" type="button" aria-label="Buka semua tools">+</button>
           </div>
@@ -328,19 +335,19 @@
 
       <div class="section" style="margin-top:18px">
         <div class="stat-strip">
-          ${statCard("Tool dibuka", uniqueTools, `dari ${totalTools} tool tersedia`, toolCounts, trend(toolCounts), { icon: "➤", tip: "Jumlah tool berbeda yang pernah dibuka di perangkat ini." })}
-          ${statCard("Favorit", favIds.length, "tool yang disimpan", favCounts, trend(favCounts), { icon: "★", tip: "Jumlah tool yang ditandai sebagai favorit." })}
-          ${statCard("Tingkat fokus (%)", focusPct + "%", `${sum(toolCounts)} dari ${activityTotal} aktivitas`, toolCounts, trend(toolCounts), { icon: "◎", tip: "Persentase aktivitas berupa pemakaian tool dibanding seluruh aktivitas lokal." })}
-          ${statCard("Game terbaru", gameEvents.length, lastGame ? `${lastGame.name} · ${C.relativeTime((gameEvents[0] || {}).at)}` : "Belum ada game dimainkan", gameCounts, trend(gameCounts), { icon: "✦", tip: "Jumlah sesi game yang tercatat; keterangan menunjukkan game terakhir dari riwayat lokal." })}
+          ${statCard("Tool dibuka", uniqueTools, `dari ${totalTools} tool tersedia`, toolCounts, trend(toolCounts), { icon: "arrowUp", tip: "Jumlah tool berbeda yang pernah dibuka di perangkat ini." })}
+          ${statCard("Favorit", favIds.length, "tool yang disimpan", favCounts, trend(favCounts), { icon: "star", tip: "Jumlah tool yang ditandai sebagai favorit." })}
+          ${statCard("Tingkat fokus (%)", focusPct + "%", `${sum(toolCounts)} dari ${activityTotal} aktivitas`, toolCounts, trend(toolCounts), { icon: "target", tip: "Persentase aktivitas berupa pemakaian tool dibanding seluruh aktivitas lokal." })}
+          ${statCard("Game terbaru", gameEvents.length, lastGame ? `${lastGame.name} · ${C.relativeTime((gameEvents[0] || {}).at)}` : "Belum ada game dimainkan", gameCounts, trend(gameCounts), { icon: "sparkle", tip: "Jumlah sesi game yang tercatat; keterangan menunjukkan game terakhir dari riwayat lokal." })}
         </div>
       </div>
 
       <div class="section">
         <div class="insights-shell">
-          <div class="insights-label"><span>✦</span><strong>INSIGHTS</strong></div>
+          <div class="insights-label">${ico("sparkle")}<strong>INSIGHTS</strong></div>
           <div class="insights">${insights.map((i) => `<div class="insight">
-            <span class="insight-icon ${esc(i.tone)}">${esc(i.icon)}</span><strong>${esc(i.title)}</strong>
-            <button class="link" data-go="${esc(i.go)}" type="button">${esc(i.action)} →</button>
+            <span class="insight-icon ${esc(i.tone)}">${ico(i.icon)}</span><strong>${esc(i.title)}</strong>
+            <button class="link" data-go="${esc(i.go)}" type="button">${esc(i.action)} ${ico("arrowRight")}</button>
           </div>`).join("")}</div>
         </div>
       </div>
@@ -354,7 +361,7 @@
         </div>
         <div class="card panel gauge-card">
           <div class="panel-head"><div><span class="eyebrow">Harian</span><h3 class="card-title mt-8">Progres daily challenge</h3></div>
-            <button class="link" data-go="utilities/daily-challenge" type="button">Laporan →</button></div>
+            <button class="link" data-go="utilities/daily-challenge" type="button">Laporan ${ico("arrowRight")}</button></div>
           <div class="gauge-wrap">
             <svg class="gauge-svg" viewBox="0 0 160 100" role="img" aria-label="Progres daily challenge ${dailyPct}%">
               <path class="gauge-track" d="M16 86 A64 64 0 0 1 144 86"></path>
@@ -370,26 +377,26 @@
         </div>
       </div>
 
-      <div class="section"><div class="section-head"><div><span class="eyebrow">Unggulan</span><h2 class="section-title">Featured tools</h2></div><button class="btn btn-sm btn-ghost" data-go="tools" type="button">Semua tools →</button></div>
+      <div class="section"><div class="section-head"><div><span class="eyebrow">Unggulan</span><h2 class="section-title">Featured tools</h2></div><button class="btn btn-sm btn-ghost" data-go="tools" type="button">Semua tools ${ico("arrowRight")}</button></div>
         <div class="tool-grid">${["js-protector", "base64", "regex-tester", "qr"].map((id, i) => toolCard(N.registry.get(id), i === 0)).join("")}</div></div>
 
       <div class="section"><div class="section-head"><div><span class="eyebrow">Kategori</span><h2 class="section-title">Pilih dunia kerja Anda</h2></div></div>
         <div class="grid grid-4">${N.registry.categories.map((c) => `<button class="card card-pad game-tile" data-cat="${esc(c.id)}" type="button" style="width:100%">
-          <span class="gt-icon">${esc(c.icon)}</span><span><strong>${esc(c.label)}</strong><small>${N.registry.tools.filter((t) => t.cat === c.id).length} tools · ${esc(c.desc)}</small></span></button>`).join("")}</div></div>
+          <span class="gt-icon">${ico(c.icon)}</span><span><strong>${esc(c.label)}</strong><small>${N.registry.tools.filter((t) => t.cat === c.id).length} tools · ${esc(c.desc)}</small></span></button>`).join("")}</div></div>
 
       <div class="section bento">
         <div class="card card-pad span-5">
           <div class="spread"><div><span class="eyebrow">Terakhir dipakai</span><h3 class="card-title mt-8">Recently used</h3></div><button class="btn btn-sm btn-ghost" data-go="history" type="button">Lihat semua</button></div>
           <div class="mini-list mt-16">${s.recent.length ? s.recent.slice(0, 6).map((id) => {
             const t = N.registry.get(id); if (!t) return "";
-            return `<div class="mini-row" data-open="${esc(t.route)}/${esc(t.id)}"><span class="mi">${esc(t.icon)}</span><span><strong>${esc(t.name)}</strong><small>${esc(N.registry.category(t.cat).label)}</small></span><time>${esc(C.relativeTime((history.find((h) => h.id === id) || {}).at))}</time></div>`;
+            return `<div class="mini-row" data-open="${esc(t.route)}/${esc(t.id)}"><span class="mi">${toolIco(t)}</span><span><strong>${esc(t.name)}</strong><small>${esc(N.registry.category(t.cat).label)}</small></span><time>${esc(C.relativeTime((history.find((h) => h.id === id) || {}).at))}</time></div>`;
           }).join("") : emptyMini("Belum ada tool yang dipakai.")}</div>
         </div>
         <div class="card card-pad span-4">
           <div class="spread"><div><span class="eyebrow">Disimpan</span><h3 class="card-title mt-8">Favorite tools</h3></div><button class="btn btn-sm btn-ghost" data-go="favorites" type="button">Kelola</button></div>
           <div class="mini-list mt-16">${s.favorites.length ? s.favorites.slice(0, 6).map((id) => {
             const t = N.registry.get(id); if (!t) return "";
-            return `<div class="mini-row" data-open="${esc(t.route)}/${esc(t.id)}"><span class="mi">★</span><span><strong>${esc(t.name)}</strong><small>${esc(N.registry.category(t.cat).label)}</small></span><time>→</time></div>`;
+            return `<div class="mini-row" data-open="${esc(t.route)}/${esc(t.id)}"><span class="mi">${ico("star")}</span><span><strong>${esc(t.name)}</strong><small>${esc(N.registry.category(t.cat).label)}</small></span><time>${ico("arrowRight")}</time></div>`;
           }).join("") : emptyMini("Belum ada favorite. Klik bintang pada tool.")}</div>
         </div>
         <div class="card card-pad challenge-card span-3">
@@ -401,16 +408,16 @@
         </div>
       </div>
 
-      <div class="section"><div class="section-head"><div><span class="eyebrow">Mini games</span><h2 class="section-title">Istirahat sejenak</h2></div><button class="btn btn-sm btn-ghost" data-go="games" type="button">Game center →</button></div>
+      <div class="section"><div class="section-head"><div><span class="eyebrow">Mini games</span><h2 class="section-title">Istirahat sejenak</h2></div><button class="btn btn-sm btn-ghost" data-go="games" type="button">Game center ${ico("arrowRight")}</button></div>
         <div class="grid grid-4">${["reaction", "2048", "snake", "scramble"].map((id) => {
           const g = N.registry.get(id);
-          return `<button class="game-tile" data-go="games/${id}" type="button"><span class="gt-icon">${esc(g.icon)}</span><span><strong>${esc(g.name)}</strong><small>${esc(g.desc)}</small></span></button>`;
+          return `<button class="game-tile" data-go="games/${id}" type="button"><span class="gt-icon">${ico(g.icon)}</span><span><strong>${esc(g.name)}</strong><small>${esc(g.desc)}</small></span></button>`;
         }).join("")}</div></div>
 
-      <div class="section"><div class="section-head"><div><span class="eyebrow">Riwayat</span><h2 class="section-title">Aktivitas terakhir</h2></div><button class="btn btn-sm btn-ghost" data-go="history" type="button">Detail →</button></div>
+      <div class="section"><div class="section-head"><div><span class="eyebrow">Riwayat</span><h2 class="section-title">Aktivitas terakhir</h2></div><button class="btn btn-sm btn-ghost" data-go="history" type="button">Detail ${ico("arrowRight")}</button></div>
         <div class="card card-pad"><div class="mini-list">${history.length ? history.slice(0, 6).map((h) => {
           const t = N.registry.get(h.id);
-          return `<div class="mini-row" data-open="${esc(t ? t.route + "/" + t.id : "dashboard")}"><span class="mi">${esc(t ? t.icon : "◷")}</span><span><strong>${esc(t ? t.name : h.id)}</strong><small>${esc(h.kind)}</small></span><time>${esc(C.relativeTime(h.at))}</time></div>`;
+          return `<div class="mini-row" data-open="${esc(t ? t.route + "/" + t.id : "dashboard")}"><span class="mi">${t ? toolIco(t) : ico("clock")}</span><span><strong>${esc(t ? t.name : h.id)}</strong><small>${esc(h.kind)}</small></span><time>${esc(C.relativeTime(h.at))}</time></div>`;
         }).join("") : emptyMini("Belum ada aktivitas. Mulai pakai sebuah tool.")}</div></div></div>`;
 
     bindToolCards(host);
@@ -499,19 +506,99 @@
     });
   }
 
+  /* ============================== security center ============================== */
+  function securityCenter(host) {
+    let checks = N.security.selfCheck();
+    function badge(check) {
+      if (check.info) return `<span class="sec-state info">INFO</span>`;
+      return check.ok ? `<span class="sec-state ok">AMAN</span>` : `<span class="sec-state bad">PERHATIAN</span>`;
+    }
+    function draw() {
+      const st = N.security.status();
+      const passed = checks.filter((c) => c.ok && !c.info).length;
+      const total = checks.filter((c) => !c.info).length;
+      host.innerHTML = `
+        <div class="workspace-head">
+          <div><span class="eyebrow">Privacy & defense</span><h1 class="page-title">Security <span class="gradient-text">Center</span></h1>
+          <p class="sub">Pertahanan browser: CSP, allowlist jaringan, key vault, dan pemeriksaan mandiri. Tidak ada telemetry, tidak ada backend.</p></div>
+          <button class="btn btn-sm btn-ghost" data-act="fav" type="button">${ico(C.isFavorite("security-center") ? "star" : "starOff")}<span>${C.isFavorite("security-center") ? "Tersimpan" : "Simpan tool"}</span></button>
+        </div>
+
+        <div class="notice ${st.mode === "local" ? "info" : ""}"><span>${ico(st.mode === "local" ? "shield" : "alert")}</span><span><strong>Mode ${st.mode === "local" ? "Lokal" : "Eksternal"}.</strong>
+          ${st.mode === "local"
+            ? "Semua permintaan ke luar aplikasi diblokir. Tool berjaringan (Bewary, XRINA, iTunes, Spotify) tidak mengirim data apa pun sampai Anda mengaktifkannya secara sadar."
+            : "Hanya 5 origin terizinkan di atas yang boleh dihubungi. Key API tidak pernah dikirim ke origin lain dan tidak disimpan permanen."}</span></div>
+
+        <div class="grid grid-2">
+          <div class="card card-pad sec-card">
+            <span class="eyebrow">Kontrol</span><h3 class="card-title mt-8">Pengaturan pertahanan</h3>
+            <label class="field mt-16"><span>Mode jaringan</span>
+              <select id="secMode"><option value="local" ${st.mode === "local" ? "selected" : ""}>Lokal — blokir semua request keluar (disarankan)</option><option value="external" ${st.mode === "external" ? "selected" : ""}>Eksternal — hanya originAllowlisted</option></select></label>
+            <p class="hint mt-8">Perubahan langsung berlaku untuk seluruh tab. Guard menutup <span class="mono">fetch</span>, XHR, WebSocket, beacon, dan penyuntikan script/iframe.</p>
+            <label class="check mt-16"><input type="checkbox" id="secRemember" ${st.rememberKeys ? "checked" : ""}> Ingat API key untuk tab ini (sessionStorage)</label>
+            <p class="hint mt-8">Default mati: key hanya disimpan di memory dan hilang saat tab ditutup. Jangan pernah menyimpan key produksi di localStorage.</p>
+            <div class="row mt-16"><button class="btn btn-sm" id="secClearKeys" type="button">Hapus API key</button>
+              <button class="btn btn-sm btn-ghost" id="secClearLog" type="button">Bersihkan log</button>
+              <button class="btn btn-sm btn-ghost" id="secRecheck" type="button">${ico("refresh")}<span>Periksa ulang</span></button></div>
+            <div class="divider"></div>
+            <div class="sec-stats">
+              <div><strong>${st.blocked}</strong><small>Diblokir</small></div>
+              <div><strong>${st.allowed}</strong><small>Diizinkan</small></div>
+              <div><strong>${st.storedKeys}</strong><small>API key aktif</small></div>
+              <div><strong>${passed}/${total}</strong><small>Check lulus</small></div>
+            </div>
+            <p class="hint mt-16">Origin diizinkan: ${st.allowlist.map((a) => `<span class="mono">${esc(a)}</span>`).join(" · ")}</p>
+          </div>
+
+          <div class="card card-pad sec-card">
+            <div class="spread"><div><span class="eyebrow">Diagnostics</span><h3 class="card-title mt-8">Pemeriksaan mandiri</h3></div><span class="badge ${passed === total ? "new" : "pro"}">${passed}/${total}</span></div>
+            <div class="sec-checks mt-16">${checks.map((c) => `<div class="sec-check"><span class="sec-icon ${c.ok ? "ok" : "bad"}">${ico(c.ok ? "check" : "alert")}</span><span class="sec-check-copy"><strong>${esc(c.name)}</strong><small>${esc(c.detail)}</small></span>${badge(c)}</div>`).join("")}</div>
+            <div class="divider"></div>
+            <span class="eyebrow">Audit jaringan (60 terakhir)</span>
+            <div class="sec-log mt-8">${st.audit.length ? st.audit.slice(0, 8).map((a) => `<div class="sec-log-row"><span class="mono tiny">${esc(C.formatTime(a.at))}</span><span class="sec-log-act">${esc(a.action)}</span><span class="mono tiny">${esc(a.origin)}</span><span class="sec-tag ${a.decision}">${esc(a.decision)}</span></div>`).join("") : `<p class="hint">Belum ada aktivitas jaringan yang tercatat.</p>`}</div>
+          </div>
+        </div>`;
+
+      $("#secMode", host).addEventListener("change", (e) => { N.security.setMode(e.target.value); C.toast("Mode jaringan: " + (e.target.value === "local" ? "Lokal" : "Eksternal"), "ok"); });
+      $("#secRemember", host).addEventListener("change", (e) => { N.security.setRememberKeys(e.target.checked); C.toast(e.target.checked ? "API key diingat untuk tab ini." : "API key hanya di memory.", "ok"); });
+      $("#secClearKeys", host).addEventListener("click", () => { N.security.clearKeys(); C.toast("Semua API key dihapus.", "ok"); });
+      $("#secClearLog", host).addEventListener("click", () => { N.security.clearAudit(); C.toast("Log dibersihkan.", "info"); });
+      $("#secRecheck", host).addEventListener("click", () => { checks = N.security.selfCheck(); draw(); C.toast("Pemeriksaan ulang selesai.", "ok"); });
+      const fav = host.querySelector('[data-act="fav"]');
+      if (fav) fav.addEventListener("click", () => { const on = C.toggleFavorite("security-center"); fav.innerHTML = ico(on ? "star" : "starOff") + "<span>" + (on ? "Tersimpan" : "Simpan tool") + "</span>"; });
+    }
+    draw();
+    const unsub = N.security.on(draw);
+    C.addCleanup(unsub);
+  }
+
+  function updateSecurityBadge() {
+    const label = $("#securityModeLabel");
+    const btn = $("#securityBtn");
+    if (!label || !btn || !N.security) return;
+    const st = N.security.status();
+    label.textContent = st.mode === "local" ? "Lokal" : "Eksternal";
+    btn.classList.toggle("external", st.mode === "external");
+    btn.setAttribute("aria-label", "Security Center — mode " + label.textContent);
+  }
+
   /* ============================== settings ============================== */
   function settingsModal() {
     const s = C.state.settings;
     C.modal({
       title: "Pengaturan NEXUS",
       body: `<div class="grid" style="gap:14px">
-        <label class="field"><span>Aksen biru</span><select id="setAccent"><option value="violet">Biru langit</option><option value="cyan">Biru es</option><option value="blue">Biru royal</option></select></label>
+        <label class="field"><span>Warna aksen</span><select id="setAccent">${ACCENTS.map((a) => `<option value="${esc(a.value)}">${esc(a.label)}</option>`).join("")}</select></label>
         <label class="field"><span>Tingkat kesulitan game default</span><select id="setDiff"><option value="easy">Mudah</option><option value="normal">Normal</option><option value="hard">Sulit</option></select></label>
         <label class="check"><input type="checkbox" id="setMotion"> Kurangi animasi & transisi</label>
         <label class="check"><input type="checkbox" id="setToast"> Tampilkan notifikasi toast</label>
         <label class="check"><input type="checkbox" id="setPreview"> Jalankan preview otomatis pada tool teks</label>
         <div class="divider"></div>
-        <div class="row"><button class="btn btn-sm" id="setExport" type="button">↓ Ekspor data lokal</button>
+        <label class="field"><span>Mode jaringan</span><select id="setNetwork"><option value="local">Lokal — blokir request keluar</option><option value="external">Eksternal — origin terizinkan saja</option></select></label>
+        <label class="check"><input type="checkbox" id="setRememberKeys"> Ingat API key untuk tab ini (sessionStorage)</label>
+        <div class="row"><button class="btn btn-sm" id="setSecurity" type="button">${ico("shield")}<span>Buka Security Center</span></button></div>
+        <div class="divider"></div>
+        <div class="row"><button class="btn btn-sm" id="setExport" type="button">${ico("download")}<span>Ekspor data lokal</span></button>
           <button class="btn btn-sm" id="setLanding" type="button">Lihat landing lagi</button>
           <button class="btn btn-sm btn-danger" id="setReset" type="button">Hapus semua data lokal</button></div>
         <p class="hint">Pengaturan, favorites, catatan, dan skor disimpan di browser ini (localStorage).</p>
@@ -523,6 +610,11 @@
         $("#setMotion", root).checked = !!s.reduceMotion;
         $("#setToast", root).checked = !!s.toasts;
         $("#setPreview", root).checked = !!s.autoPreview;
+        $("#setNetwork", root).value = N.security.mode;
+        $("#setRememberKeys", root).checked = N.security.rememberKeys();
+        $("#setSecurity", root).addEventListener("click", () => { C.closeModal(); go("security"); });
+        $("#setNetwork", root).addEventListener("change", (e) => { N.security.setMode(e.target.value); updateSecurityBadge(); C.toast("Mode jaringan diperbarui.", "ok"); });
+        $("#setRememberKeys", root).addEventListener("change", (e) => { N.security.setRememberKeys(e.target.checked); C.toast("Pengaturan API key diperbarui.", "ok"); });
         $("#setAccent", root).addEventListener("change", (e) => { s.accent = e.target.value; applyAccent(); C.save(); });
         $("#setDiff", root).addEventListener("change", (e) => { s.difficulty = e.target.value; C.save(); });
         $("#setMotion", root).addEventListener("change", (e) => { s.reduceMotion = e.target.checked; C.applySettings(); C.save(); });
@@ -566,7 +658,7 @@
           const q = input.value.trim();
           if (!q) { results.innerHTML = ""; return; }
           const found = N.registry.search(q, 12);
-          results.innerHTML = found.length ? found.map((t) => `<button class="search-result" data-result="${esc(t.id)}" type="button"><span class="sr-icon">${esc(t.icon)}</span><span><strong>${esc(t.name)}</strong><small>${esc(N.registry.category(t.cat).label)} · ${esc(t.desc.slice(0, 48))}…</small></span></button>`).join("") : `<div class="search-empty">Tidak ada tool untuk "${esc(q)}".</div>`;
+          results.innerHTML = found.length ? found.map((t) => `<button class="search-result" data-result="${esc(t.id)}" type="button"><span class="sr-icon">${toolIco(t)}</span><span><strong>${esc(t.name)}</strong><small>${esc(N.registry.category(t.cat).label)} · ${esc(t.desc.slice(0, 48))}…</small></span></button>`).join("") : `<div class="search-empty">Tidak ada tool untuk "${esc(q)}".</div>`;
         }
         input.addEventListener("input", render);
         input.addEventListener("keydown", (e) => {
@@ -591,7 +683,7 @@
       if (!q) { hide(); return; }
       const results = N.registry.search(q, 12);
       panel.innerHTML = results.length ? results.map((t) => `<button class="search-result" data-result="${esc(t.id)}" type="button">
-        <span class="sr-icon">${esc(t.icon)}</span><span><strong>${esc(t.name)}</strong><small>${esc(N.registry.category(t.cat).label)} · ${esc(t.desc.slice(0, 48))}…</small></span></button>`).join("") : `<div class="search-empty">Tidak ada tool untuk "${esc(q)}".</div>`;
+        <span class="sr-icon">${toolIco(t)}</span><span><strong>${esc(t.name)}</strong><small>${esc(N.registry.category(t.cat).label)} · ${esc(t.desc.slice(0, 48))}…</small></span></button>`).join("") : `<div class="search-empty">Tidak ada tool untuk "${esc(q)}".</div>`;
       panel.hidden = false;
     }
     input.addEventListener("input", show);
@@ -656,6 +748,9 @@
       C.save();
     });
     [$("#openSettings"), $("#topSettingsBtn"), $("#footerSettings"), $("#profileBtn")].forEach((b) => b && b.addEventListener("click", settingsModal));
+    const secBtn = $("#securityBtn");
+    if (secBtn) secBtn.addEventListener("click", () => go("security"));
+    if (N.security) { N.security.on(updateSecurityBadge); updateSecurityBadge(); }
     const profile = $("#profileBtn");
     if (profile) profile.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); settingsModal(); } });
     const help = $("#helpCenter");
@@ -691,7 +786,7 @@
       $$("[data-star]").forEach((b) => {
         const on = C.isFavorite(b.dataset.star);
         b.classList.toggle("on", on);
-        b.textContent = on ? "★" : "☆";
+        b.innerHTML = ico(on ? "star" : "starOff");
       });
       renderSidebar();
     });
@@ -734,12 +829,14 @@
       if (page === "landing") landing(view);
       else if (page === "dashboard") dashboard(view);
       else if (page === "protect") N.protection.render(view);
+      else if (page === "ai") N.ai.render(view);
       else if (page === "tools") param ? N.codeTools.render(view, param) : toolIndex(view, "tools");
       else if (page === "utilities") param ? N.utilities.render(view, param) : toolIndex(view, "utilities");
       else if (page === "games") param ? N.games.render(view, param) : N.games.index(view);
       else if (page === "music") N.music.render(view);
       else if (page === "favorites") favorites(view);
       else if (page === "history") history(view);
+      else if (page === "security") securityCenter(view);
       view.focus({ preventScroll: true });
       document.title = `${info.title} — NEXUS TOOLBOX`;
     };
@@ -748,6 +845,7 @@
   }
 
   function init() {
+    $$("[data-icon]").forEach((el) => { el.innerHTML = ico(el.dataset.icon); });
     applyAccent();
     applyShellPrefs();
     setupShell();
