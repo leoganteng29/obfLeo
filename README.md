@@ -28,7 +28,7 @@ Aplikasi **static client-side** (tanpa backend). Semua proses berjalan di browse
 - **Streaming SSE** untuk provider OpenAI-compatible; Gemini/Anthropic merespons sekaligus.
 - **API key tidak diisi lewat UI lagi.** Key dibaca dari `js/ai-key.local.js` saat aplikasi dimuat, lalu disimpan di key vault dalam memory dan disensor pada error/audit. File yang dikirim publik sengaja KOSONG.
 - Semua request AI wajib melewati `N.security.fetch` dan **Mode Eksternal**; pada Mode Lokal seluruh request diblokir.
-- `build-public.js` **menolak membuat zip** bila `js/ai-key.local.js` berisi key, sehingga key tidak ikut terbagi ke publik/preview.
+- `build-public.cjs` **menolak membuat zip** bila `js/ai-key.local.js` berisi key, sehingga key tidak ikut terbagi ke publik/preview.
 
 ### 1c. Perbaikan AI (revisi terbaru)
 - **Model selalu milik provider aktif.** Sebelumnya provider bisa terkirim dengan nama model provider lain (mis. Anthropic dengan `gpt-4o` → 404). Sekarang pergantian provider, baik dari toolbar maupun Pengaturan, langsung menyetel model default provider itu.
@@ -71,7 +71,7 @@ Aplikasi **static client-side** (tanpa backend). Semua proses berjalan di browse
 3. Untuk tool berjaringan, aktifkan Eksternal; guard tetap memblokir origin di luar daftar izin.
 4. Untuk AI: edit `js/ai-key.local.js` pada **salinan lokal** Anda, isi mis. `openai: "key-anda-di-sini"`. Jangan upload/bagikan salinan ini.
 5. Buka **AI Studio** → Security Center → aktifkan **Eksternal** → pilih provider/model → kirim pesan/lampiran. Untuk Ollama, jalankan aplikasi dari `http://localhost` dan gunakan base `http://localhost:11434/v1`.
-6. Untuk membuat zip publik: jalankan `node build-public.js`. Script ini akan gagal jika API key masih terisi.
+6. Untuk membuat zip publik: jalankan `node build-public.cjs`. Script ini akan gagal jika API key masih terisi.
 7. Untuk enkripsi rahasia: *JS Protector → AES-GCM + Passphrase*, simpan passphrase terpisah dari file hasil.
 
 ## Verifikasi yang sudah dijalankan
@@ -79,7 +79,7 @@ Aplikasi **static client-side** (tanpa backend). Semua proses berjalan di browse
 - Uji eksekusi 5 mode enkripsi di Node — payload terbuka & tereksekusi, source mentah tidak tertanam, anti-tamper bekerja.
 - Uji JSDOM: seluruh 11 route (termasuk AI Studio) ter-render tanpa error, seluruh 11 mode transform menghasilkan JavaScript valid, security gate & self-check lulus.
 - Uji AI Studio: lampiran gambar/file terkirim sebagai konteks, system prompt coding hadir, Mode Lokal memblokir request, streaming SSE bekerja, request OpenAI/Anthropic/Gemini sesuai format, key dari file lokal terpakai & tidak bocor ke DOM/audit log, markdown aman dari HTML injektif.
-- Uji build publik: `build-public.js` menolak key terisi, zip tidak mengandung pola `sk-...`, dan tidak ada emoji/ikon teks mentah pada seluruh route.
+- Uji build publik: `build-public.cjs` menolak key terisi, zip tidak mengandung pola `sk-...`, dan tidak ada emoji/ikon teks mentah pada seluruh route.
 
 - Uji E2E AI Studio (Chromium headless, semua request API dimock, key palsu): 9 provider (OpenAI, Anthropic, Gemini, Groq, OpenRouter, Mistral, DeepSeek, xAI, Ollama) menerima respons; 17 skenario tepi lulus (gambar tanpa teks, Hentikan, ganti provider di Pengaturan, error 401, error SSE, Ollama mati, endpoint kustom tanpa key, o4-mini, markdown, reload).
 - Uji smoke seluruh 55 route di layar 390 px: tanpa error halaman, tanpa overflow horizontal di AI Studio.
@@ -103,3 +103,10 @@ Catatan: Pengujian di atas memakai respons tiruan, bukan panggilan ke provider s
 AI Studio mengirim request ke `/api/chat` dan `/api/models`. Kedua endpoint Vercel membaca `OPENROUTER_API_KEY` dari environment server, bukan dari JavaScript browser.
 
 **Penting:** endpoint proxy ini dapat dipanggil oleh pengunjung website. Jangan membagikan URL deployment secara publik sebelum menambahkan pembatasan akses/rate limit yang sesuai. Pantau penggunaan dan batas pengeluaran OpenRouter. Jangan commit `.env` atau API key ke GitHub.
+
+## Glassmorphism 2.0 (revisi UI)
+- **`css/glass.css`** (dimuat terakhir): design tokens (palet navy `#17154B`, indigo `#5145D9`, violet `#A78BFA`, ice `#B8E5FF`, ivory `#F8F7F2`, lavender `#EAE8FF`, pale `#E7F3FF`), latar ambient, permukaan kaca frosted, sidebar navy-glass, tombol gloss, input/fokus, chip, dan tautan aksi.
+- Perubahan hanya pada CSS dan satu baris `<link>` di `index.html`. **Tidak ada perubahan logika JavaScript, routing, keamanan, atau API.**
+- Perbaikan: placeholder pencarian sidebar terlihat; tombol primer tidak lagi berubah menjadi putih-di-putih saat hover; tautan "Laporan" tidak pecah baris; target sentuh 44px pada perangkat sentuh; `prefers-reduced-motion` dihormati.
+- `build-public.cjs` kini ikut menyertakan `api/`, `vercel.json`, `package.json`, `.gitignore`, `.env.example`. Sebelumnya folder `api/` tidak masuk ZIP publik sehingga proksi AI tidak ikut ter-deploy.
+- Deploy: set `OPENROUTER_API_KEY` di Vercel Project Settings > Environment Variables, lalu deploy ulang.

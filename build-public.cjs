@@ -12,11 +12,9 @@
   const config = fs.readFileSync(configPath, "utf8");
 
   const block = config.match(/NEXUS_AI_KEYS\s*=\s*window\.NEXUS_AI_KEYS\s*\|\|\s*\{([\s\S]*?)\}/);
-  if (!block) {
-    console.error("GAGAL: blok NEXUS_AI_KEYS tidak ditemukan di js/ai-key.local.js");
-    process.exit(1);
-  }
-  const filled = block[1].split(/\r?\n/).filter((line) => {
+  // Tanpa blok NEXUS_AI_KEYS berarti tidak ada key yang ditulis di file ini.
+  // Pemeriksaan pola key (sk-..., xoxb-...) di bawah tetap berjalan untuk semua file publik.
+  const filled = (block ? block[1].split(/\r?\n/) : []).filter((line) => {
     if (!/^\s*[a-z]+\s*:/.test(line)) return false;
     const value = (line.match(/["']([^"']*)["']/) || [])[1];
     return !!value && !/^(tempel|isi|sk-?)$/i.test(value);
@@ -28,7 +26,8 @@
   }
 
   const publicFiles = [
-    "index.html", "README.md", "build-public.js",
+    "index.html", "README.md", "build-public.cjs", "package.json", "vercel.json",
+    ".gitignore", ".env.example", "api/chat.js", "api/models.js", "css/glass.css",
     "css/ai.css", "css/modern.css", "css/styles.css",
     "js/ai-key.local.js", "js/ai.js", "js/app.js", "js/code-tools.js", "js/core.js",
     "js/fx.js", "js/games.js", "js/icons.js", "js/music.js", "js/photolive.js",
