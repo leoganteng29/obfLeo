@@ -1,6 +1,8 @@
 /* NEXUS TOOLBOX — local QR Code generator (byte mode, ECC L/M, versions 1-10) */
 (function (N) {
   "use strict";
+
+  const ico = (name, cls) => (N.icons ? N.icons.svg(name, cls) : "");
   const { escapeHtml: esc } = N.core;
 
   const TOTAL_CODEWORDS = [0, 26, 44, 70, 100, 134, 172, 196, 242, 292, 346];
@@ -265,7 +267,7 @@
       <div class="opts"><label class="field"><span>Teks atau URL</span><textarea id="qrText" rows="3" placeholder="https://example.com">https://nexus-toolbox.local</textarea></label>
       <label class="field"><span>Koreksi error</span><select id="qrEcl"><option value="M">M — sedang (disarankan)</option><option value="L">L — kapasitas lebih besar</option></select></label>
       <label class="field"><span>Ukuran module</span><select id="qrScale"><option value="auto">Otomatis</option><option value="2">Kecil</option><option value="3">Sedang</option><option value="4">Besar</option></select></label></div>
-      <div class="row mt-16"><button class="btn btn-primary" data-qr="gen" type="button">▦ Buat QR</button><button class="btn" data-qr="png" type="button">Unduh PNG</button><button class="btn btn-ghost" data-qr="clear" type="button">Bersihkan</button></div>
+      <div class="row mt-16"><button class="btn btn-primary" data-qr="gen" type="button">${ico("qr")}<span>Buat QR</span></button><button class="btn" data-qr="png" type="button">Unduh PNG</button><button class="btn btn-ghost" data-qr="clear" type="button">Bersihkan</button></div>
       <div class="status-line mt-8" id="qrStatus"></div>
       <div class="qr-result mt-16"><canvas id="qrCanvas"></canvas><div class="hint" id="qrInfo">QR dibuat sepenuhnya di browser Anda.</div></div>
       <div class="notice mt-16">QR code hanya menyimpan teks/URL yang Anda masukkan. Tidak ada permintaan jaringan untuk membuatnya.</div></div>`;

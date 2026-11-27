@@ -1,6 +1,8 @@
 /* NEXUS TOOLBOX — extra utilities */
 (function (N) {
   "use strict";
+
+  const ico = (name, cls) => (N.icons ? N.icons.svg(name, cls) : "");
   const { escapeHtml: esc } = N.core;
   const $ = (s, r) => (r || document).querySelector(s);
 
@@ -26,14 +28,14 @@
   function head(tool, extra) {
     return `<div class="workspace-head"><div><span class="eyebrow">${esc(N.registry.category(tool.cat).label)}</span>
       <h1 class="page-title">${esc(tool.name)}</h1><p class="sub">${esc(tool.desc)}</p></div>
-      <div class="row">${extra || ""}<button class="btn btn-sm btn-ghost" data-util="fav" type="button">${N.core.isFavorite(tool.id) ? "★ Tersimpan" : "☆ Simpan"}</button></div></div>`;
+      <div class="row">${extra || ""}<button class="btn btn-sm btn-ghost" data-util="fav" type="button">${ico(N.core.isFavorite(tool.id) ? "star" : "starOff")}<span>${N.core.isFavorite(tool.id) ? "Tersimpan" : "Simpan"}</span></button></div></div>`;
   }
   function bindFav(host, id) {
     host.addEventListener("click", (e) => {
       const b = e.target.closest('[data-util="fav"]');
       if (!b) return;
       const on = N.core.toggleFavorite(id);
-      b.textContent = on ? "★ Tersimpan" : "☆ Simpan";
+      b.innerHTML = ico(on ? "star" : "starOff") + "<span>" + (on ? "Tersimpan" : "Simpan") + "</span>";
       N.core.toast(on ? "Disimpan ke favorites." : "Dihapus.", "ok");
     });
   }
@@ -57,8 +59,8 @@
     let timer = null;
     host.innerHTML = head(tool) + `<div class="card card-pad" style="max-width:720px;margin:auto">
       <div class="big-time" id="swTime">00:00.00</div>
-      <div class="row" style="justify-content:center"><button class="btn btn-primary" data-sw="toggle" type="button">▶ Mulai</button>
-      <button class="btn" data-sw="lap" type="button">⚑ Lap</button><button class="btn btn-ghost" data-sw="reset" type="button">Reset</button></div>
+      <div class="row" style="justify-content:center"><button class="btn btn-primary" data-sw="toggle" type="button">${ico("play")}<span>Mulai</span></button>
+      <button class="btn" data-sw="lap" type="button">${ico("flag")}<span>Lap</span></button><button class="btn btn-ghost" data-sw="reset" type="button">Reset</button></div>
       <div class="divider"></div><div class="spread"><strong class="tiny">LAP TIME</strong><span class="hint" id="swLapCount">0 lap</span></div>
       <div class="lap-list mt-8" id="swLaps"><div class="faint tiny">Belum ada lap.</div></div></div>`;
     function render() {
@@ -75,13 +77,13 @@
       const b = e.target.closest("[data-sw]");
       if (!b) return;
       if (b.dataset.sw === "toggle") {
-        if (running) { accumulated += performance.now() - started; running = false; b.textContent = "▶ Lanjut"; }
-        else { started = performance.now(); running = true; b.textContent = "❚❚ Jeda"; }
+        if (running) { accumulated += performance.now() - started; running = false; b.innerHTML = ico("play") + "<span>Lanjut</span>"; }
+        else { started = performance.now(); running = true; b.innerHTML = ico("pause") + "<span>Jeda</span>"; }
       }
       if (b.dataset.sw === "lap" && running) { laps.push(performance.now() - started); refreshLaps(); }
       if (b.dataset.sw === "reset") {
         running = false; accumulated = 0; laps = []; refreshLaps();
-        $('[data-sw="toggle"]', host).textContent = "▶ Mulai";
+        $('[data-sw="toggle"]', host).innerHTML = ico("play") + "<span>Mulai</span>";
         $("#swTime", host).textContent = "00:00.00";
       }
     });
@@ -99,7 +101,7 @@
       <label class="field"><span>Detik</span><input type="number" id="cdS" min="0" max="59" value="0"></label></div>
       <div class="big-time" id="cdTime">00:01</div>
       <div class="progress"><span id="cdBar" style="width:100%"></span></div>
-      <div class="row mt-16" style="justify-content:center"><button class="btn btn-primary" data-cd="toggle" type="button">▶ Mulai</button>
+      <div class="row mt-16" style="justify-content:center"><button class="btn btn-primary" data-cd="toggle" type="button">${ico("play")}<span>Mulai</span></button>
       <button class="btn" data-cd="set" type="button">Set ulang</button><button class="btn btn-ghost" data-cd="stop" type="button">Hentikan</button></div>
       <div class="status-line mt-8" id="cdStatus"></div></div>`;
     function totalMs() {
@@ -132,11 +134,11 @@
         $("#cdBar", host).style.width = "100%"; $("#cdStatus", host).textContent = "Timer diset ulang.";
       }
       if (b.dataset.cd === "toggle") {
-        if (running) { clearInterval(timer); timer = null; running = false; remaining = endAt - performance.now(); b.textContent = "▶ Lanjut"; }
+        if (running) { clearInterval(timer); timer = null; running = false; remaining = endAt - performance.now(); b.innerHTML = ico("play") + "<span>Lanjut</span>"; }
         else {
           if (remaining <= 0) remaining = totalMs();
           if (remaining <= 0) { N.core.toast("Masukkan durasi dulu.", "err"); return; }
-          endAt = performance.now() + remaining; running = true; b.textContent = "❚❚ Jeda";
+          endAt = performance.now() + remaining; running = true; b.innerHTML = ico("pause") + "<span>Jeda</span>";
           timer = setInterval(tick, 200);
         }
       }
@@ -144,7 +146,7 @@
         clearInterval(timer); timer = null; running = false; remaining = totalMs();
         $("#cdTime", host).textContent = N.core.formatDuration(remaining);
         $("#cdBar", host).style.width = "100%";
-        $('[data-cd="toggle"]', host).textContent = "▶ Mulai";
+        $('[data-cd="toggle"]', host).innerHTML = ico("play") + "<span>Mulai</span>";
       }
     });
     bindFav(host, tool.id);
@@ -189,7 +191,7 @@
       <label class="field"><span>Istirahat panjang</span><input type="number" id="pdLong" min="1" max="90" value="15"></label></div>
       <div class="big-time" id="pdTime">25:00</div>
       <div class="progress"><span id="pdBar" style="width:100%"></span></div>
-      <div class="row mt-16" style="justify-content:center"><button class="btn btn-primary" data-pd="toggle" type="button">▶ Mulai</button>
+      <div class="row mt-16" style="justify-content:center"><button class="btn btn-primary" data-pd="toggle" type="button">${ico("play")}<span>Mulai</span></button>
       <button class="btn" data-pd="reset" type="button">Reset sesi</button></div>
       <div class="spread mt-16"><span class="hint">Siklus selesai: <strong id="pdCycles">${N.core.state.pomodoro.cycles || 0}</strong></span><span class="hint" id="pdStatus">Siap memulai.</span></div></div>`;
     function setMode(m, reset) {
@@ -198,13 +200,13 @@
       remaining = durations()[m];
       $("#pdTime", host).textContent = N.core.formatDuration(remaining);
       $("#pdBar", host).style.width = "100%";
-      if (reset) { running = false; clearInterval(timer); timer = null; $('[data-pd="toggle"]', host).textContent = "▶ Mulai"; }
+      if (reset) { running = false; clearInterval(timer); timer = null; $('[data-pd="toggle"]', host).innerHTML = ico("play") + "<span>Mulai</span>"; }
     }
     function tick() {
       remaining = endAt - performance.now();
       if (remaining <= 0) {
         remaining = 0; running = false; clearInterval(timer); timer = null;
-        $('[data-pd="toggle"]', host).textContent = "▶ Mulai";
+        $('[data-pd="toggle"]', host).innerHTML = ico("play") + "<span>Mulai</span>";
         if (mode === "work") {
           N.core.state.pomodoro.cycles = (N.core.state.pomodoro.cycles || 0) + 1;
           N.core.save(); N.core.emit("data-changed");
@@ -228,10 +230,10 @@
       const b = e.target.closest("[data-pd]");
       if (!b) return;
       if (b.dataset.pd === "toggle") {
-        if (running) { clearInterval(timer); timer = null; running = false; remaining = endAt - performance.now(); b.textContent = "▶ Lanjut"; }
+        if (running) { clearInterval(timer); timer = null; running = false; remaining = endAt - performance.now(); b.innerHTML = ico("play") + "<span>Lanjut</span>"; }
         else {
           if (remaining <= 0) remaining = durations()[mode];
-          endAt = performance.now() + remaining; running = true; b.textContent = "❚❚ Jeda";
+          endAt = performance.now() + remaining; running = true; b.innerHTML = ico("pause") + "<span>Jeda</span>";
           $("#pdStatus", host).textContent = mode === "work" ? "Fokus berjalan." : "Istirahat berjalan.";
           timer = setInterval(tick, 250);
         }
@@ -285,8 +287,8 @@
     const items = N.core.state.clipboard || [];
     host.innerHTML = head(tool) + `<div class="card card-pad">
       <div class="opts"><label class="field" style="grid-column:1/-1"><span>Teks baru</span><textarea id="cbInput" rows="3" placeholder="Tempel atau tulis teks..."></textarea></label></div>
-      <div class="row mt-16"><button class="btn btn-primary" data-cb="add" type="button">＋ Simpan</button>
-      <button class="btn" data-cb="read" type="button">⎘ Ambil dari clipboard</button>
+      <div class="row mt-16"><button class="btn btn-primary" data-cb="add" type="button">${ico("plus")}<span>Simpan</span></button>
+      <button class="btn" data-cb="read" type="button">${ico("clipboard")}<span>Ambil dari clipboard</span></button>
       <button class="btn btn-sm btn-ghost" data-cb="clear" type="button">Hapus semua</button></div>
       <div class="divider"></div><div class="spread"><strong class="tiny">SIMPANAN</strong><span class="hint" id="cbCount"></span></div>
       <div class="grid mt-8" id="cbList" style="gap:8px"></div></div>`;
@@ -294,7 +296,7 @@
       const list = N.core.state.clipboard || [];
       $("#cbCount", host).textContent = list.length + " item";
       $("#cbList", host).innerHTML = list.length ? list.map((x, i) => `<div class="clip-item"><span title="${esc(x)}">${esc(x)}</span>
-        <button class="btn btn-sm" data-copy="${i}" type="button">Salin</button><button class="btn btn-sm btn-ghost" data-del="${i}" type="button">✕</button></div>`).join("") : '<div class="empty"><div class="empty-icon">⎘</div><strong>Belum ada simpanan</strong><p>Tambahkan teks untuk dipakai kembali.</p></div>';
+        <button class="btn btn-sm" data-copy="${i}" type="button">Salin</button><button class="btn btn-sm btn-ghost" data-del="${i}" type="button">${ico("close")}</button></div>`).join("") : '<div class="empty"><div class="empty-icon">${ico("clipboard")}</div><strong>Belum ada simpanan</strong><p>Tambahkan teks untuk dipakai kembali.</p></div>';
     }
     host.addEventListener("click", async (e) => {
       const add = e.target.closest('[data-cb="add"]');
@@ -330,7 +332,7 @@
   impl["random-picker"] = (host, tool) => {
     host.innerHTML = head(tool) + `<div class="card card-pad">
       <label class="field"><span>Daftar item (satu per baris)</span><textarea id="rpItems" rows="8" placeholder="Apa saja\nNexus\nToolbox">React\nVue\nSvelte\nVanilla JS</textarea></label>
-      <div class="row mt-16"><button class="btn btn-primary" data-rp="pick" type="button">⚄ Pilih acak</button>
+      <div class="row mt-16"><button class="btn btn-primary" data-rp="pick" type="button">${ico("dice")}<span>Pilih acak</span></button>
       <label class="check"><input type="checkbox" id="rpNoRepeat"> Hindari pengulangan</label></div>
       <div class="big-time" id="rpResult" style="font-size:2rem;min-height:80px">—</div>
       <div class="divider"></div><span class="hint">Riwayat pemilihan</span><div class="results mt-8" id="rpHistory"></div></div>`;
@@ -379,7 +381,7 @@
       </div>
       <div class="pw-output mt-16" id="pwOut">—</div>
       <div class="spread mt-8"><div class="progress" style="flex:1"><span id="pwBar" style="width:0%"></span></div><span class="hint" id="pwScore">—</span></div>
-      <div class="row mt-16"><button class="btn btn-primary" data-pw="gen" type="button">⟳ Buat kata sandi</button><button class="btn" data-pw="copy" type="button">Salin</button></div></div>`;
+      <div class="row mt-16"><button class="btn btn-primary" data-pw="gen" type="button">${ico("refresh")}<span>Buat kata sandi</span></button><button class="btn" data-pw="copy" type="button">Salin</button></div></div>`;
     const SETS = { upper: "ABCDEFGHIJKLMNOPQRSTUVWXYZ", lower: "abcdefghijklmnopqrstuvwxyz", digit: "0123456789", symbol: "!@#$%^&*()-_=+[]{};:,.?/" };
     function chars() {
       const picked = {};
@@ -609,7 +611,7 @@
 
   /* ============================== Cek Penipuan (Bewary API) ============================== */
   const BEWARY_BASE = "https://api.bewary.app";
-  const BEWARY_KEY_STORE = "nexus.bewary.key";
+  const BEWARY_KEY_STORE = "bewary";
   const BEWARY_TYPES = {
     url: { label: "Link / URL", hint: "https://contoh.com/halaman", path: (v) => "/v1/url?u=" + encodeURIComponent(v) },
     domain: { label: "Domain", hint: "contoh.com", path: (v) => "/v1/domain/" + encodeURIComponent(v) },
@@ -631,8 +633,8 @@
   };
 
   impl.scamcheck = (host, tool) => {
-    const readKey = () => { try { return sessionStorage.getItem(BEWARY_KEY_STORE) || ""; } catch (e) { return ""; } };
-    const writeKey = (v) => { try { if (v) sessionStorage.setItem(BEWARY_KEY_STORE, v); else sessionStorage.removeItem(BEWARY_KEY_STORE); } catch (e) {} };
+    const readKey = () => N.security.getKey(BEWARY_KEY_STORE);
+    const writeKey = (v) => N.security.setKey(BEWARY_KEY_STORE, v);
     const typeOptions = Object.entries(BEWARY_TYPES).map(([k, v]) => `<option value="${k}">${esc(v.label)}</option>`).join("");
 
     host.innerHTML = head(tool) + `
@@ -641,12 +643,12 @@
           <h3 class="card-title">Cek sesuatu</h3>
           <label class="field mt-16"><span>API key Bewary</span>
             <input type="password" id="bwKey" autocomplete="off" spellcheck="false" placeholder="Tempel API key dari bewary.app/account"></label>
-          <p class="hint mt-8">Key hanya disimpan di sessionStorage tab ini dan hilang saat tab ditutup. Request dikirim langsung dari browser ke ${esc(BEWARY_BASE.replace("https://", ""))}.</p>
+          <p class="hint mt-8">Key default hanya disimpan di memory (hilang saat tab ditutup). Aktifkan "ingat untuk tab ini" di Security Center bila perlu. Request melewati guard dan hanya dikirim ke ${esc(BEWARY_BASE.replace("https://", ""))}.</p>
           <label class="field mt-16"><span>Jenis pengecekan</span><select id="bwType">${typeOptions}</select></label>
           <div id="bwExtra"></div>
           <label class="field mt-16"><span id="bwValueLabel">Nilai</span><input type="text" id="bwValue" autocomplete="off" spellcheck="false"></label>
           <div class="row mt-16">
-            <button class="btn btn-primary" id="bwRun" type="button">◈ Cek</button>
+            <button class="btn btn-primary" id="bwRun" type="button">${ico("sparkle")}<span>Cek</span></button>
             <button class="btn btn-sm btn-ghost" id="bwClear" type="button">Bersihkan hasil</button>
           </div>
           <div class="status-line mt-8" id="bwStatus"></div>
@@ -718,7 +720,7 @@
       const ctrl = new AbortController();
       const timer = setTimeout(() => ctrl.abort(), 12000);
       try {
-        const res = await fetch(BEWARY_BASE + type.path(value, extra), {
+        const res = await N.security.fetch(BEWARY_BASE + type.path(value, extra), {
           headers: { Authorization: "Bearer " + key, Accept: "application/json" },
           signal: ctrl.signal
         });
@@ -741,9 +743,11 @@
           N.core.trackTool(tool.id, "utility");
         }
       } catch (err) {
-        const msg = err && err.name === "AbortError"
-          ? "Waktu habis (12 detik). Coba lagi."
-          : "Gagal terhubung ke Bewary. Cek koneksi, atau browser ini memblokir akses API (CORS).";
+        const msg = err && err.blocked
+          ? N.security.redact(err.message)
+          : err && err.name === "AbortError"
+            ? "Waktu habis (12 detik). Coba lagi."
+            : N.security.redact("Gagal terhubung ke Bewary. Cek koneksi atau izinkan mode eksternal di Security Center.");
         showError(msg);
         status.className = "status-line bad";
         status.textContent = "Gagal terhubung.";
@@ -771,7 +775,7 @@
     const ctrl = new AbortController();
     const timer = setTimeout(() => ctrl.abort(), timeoutMs || 15000);
     try {
-      const res = await fetch(XRINA_BASE + path, { headers: { Accept: "application/json" }, signal: ctrl.signal });
+      const res = await N.security.fetch(XRINA_BASE + path, { headers: { Accept: "application/json" }, signal: ctrl.signal });
       const text = await res.text();
       let data = null;
       try { data = text ? JSON.parse(text) : null; } catch (e) { data = null; }
@@ -779,8 +783,9 @@
       if (!data || data.status !== true) throw new Error((data && (data.message || data.error)) || "Tidak ada hasil untuk pencarian ini.");
       return data;
     } catch (err) {
+      if (err && err.blocked) throw err;
       if (err && err.name === "AbortError") throw new Error("Waktu habis. Coba lagi.");
-      if (err instanceof TypeError) throw new Error("Gagal terhubung ke server. Cek koneksi, atau browser ini memblokir akses (CORS).");
+      if (err instanceof TypeError) throw new Error("Gagal terhubung ke server. Cek koneksi, atau aktifkan mode eksternal di Security Center.");
       throw err;
     } finally {
       clearTimeout(timer);
@@ -848,7 +853,7 @@
     };
     const row = (item, sub, type) => {
       const url = spotifyUrl(item.uri) || (item.id ? `https://open.spotify.com/${type}/${item.id}` : "");
-      const img = item.poster ? `<img src="${esc(item.poster)}" alt="" loading="lazy" referrerpolicy="no-referrer" style="width:48px;height:48px;border-radius:8px;object-fit:cover;flex:none">` : `<span class="mi" style="width:48px;height:48px;display:grid;place-items:center;flex:none">♪</span>`;
+      const img = item.poster ? `<img src="${esc(item.poster)}" alt="" loading="lazy" referrerpolicy="no-referrer" style="width:48px;height:48px;border-radius:8px;object-fit:cover;flex:none">` : `<span class="mi" style="width:48px;height:48px;display:grid;place-items:center;flex:none">${ico("music")}</span>`;
       const title = url ? `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer"><strong>${esc(item.name || "-")}</strong></a>` : `<strong>${esc(item.name || "-")}</strong>`;
       return `<div class="row mt-8" style="align-items:center">${img}<div style="min-width:0"><div>${title}</div><div class="hint">${esc(sub)}</div></div></div>`;
     };
@@ -929,7 +934,7 @@
           </div>
           ${Object.keys(stats).length ? `<p class="hint mt-16">Total repo ${esc(stats.total_repos ?? "-")} · bintang ${esc(stats.total_stars ?? "-")} · fork ${esc(stats.total_forks ?? "-")}${Array.isArray(stats.languages) && stats.languages.length ? " · bahasa: " + esc(stats.languages.join(", ")) : ""}</p>` : ""}
           ${repos.length ? `<h4 class="mt-16">Repositori</h4>${repos.slice(0, 12).map((r) => `<div class="mt-8"><a href="${esc(r.html_url || "#")}" target="_blank" rel="noopener noreferrer"><strong>${esc(r.name || r.full_name || "-")}</strong></a>
-            <div class="hint">${esc(r.description || "")}${r.language ? " · " + esc(r.language) : ""}${r.stargazers_count != null ? " · ★ " + esc(r.stargazers_count) : ""}</div></div>`).join("")}` : ""}
+            <div class="hint">${esc(r.description || "")}${r.language ? " · " + esc(r.language) : ""}${r.stargazers_count != null ? " · bintang " + esc(r.stargazers_count) : ""}</div></div>`).join("")}` : ""}
           ${events.length ? `<h4 class="mt-16">Aktivitas terbaru</h4>${events.slice(0, 10).map((ev) => `<div class="hint mt-8">${esc(ev.type || "Event")}${ev.repo && ev.repo.name ? " · " + esc(ev.repo.name) : ev.repo ? " · " + esc(ev.repo) : ""}${ev.created_at ? " · " + esc(fmtDate(ev.created_at)) : ""}</div>`).join("")}` : ""}`;
         status.className = "status-line ok"; status.textContent = "Profil ditemukan.";
         N.core.trackTool(tool.id, "utility");

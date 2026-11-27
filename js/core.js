@@ -2,6 +2,8 @@
 (function (N) {
   "use strict";
 
+  const ico = (name, cls) => (N.icons ? N.icons.svg(name, cls) : "");
+
   const KEY = "nexus-toolbox:v1";
   const prefersReducedMotion = typeof window !== "undefined" && typeof window.matchMedia === "function" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -16,7 +18,9 @@
       reduceMotion: !!prefersReducedMotion,
       toasts: true,
       difficulty: "normal",
-      autoPreview: true
+      autoPreview: true,
+      networkMode: "local",
+      rememberApiKeys: false
     },
     notes: "",
     clipboard: [],
@@ -57,9 +61,12 @@
     s.usage = isPlainObject(s.usage) ? Object.fromEntries(Object.entries(s.usage).filter(([k, v]) => typeof k === "string" && Number.isFinite(Number(v)) && Number(v) >= 0).map(([k, v]) => [k, Math.floor(Number(v))])) : {};
     s.scores = isPlainObject(s.scores) ? Object.fromEntries(Object.entries(s.scores).filter(([k, v]) => typeof k === "string" && (typeof v === "string" || typeof v === "number" || isPlainObject(v)))) : {};
     s.settings = isPlainObject(s.settings) ? s.settings : clone(DEFAULTS.settings);
-    if (!["violet", "cyan", "blue"].includes(s.settings.accent)) s.settings.accent = DEFAULTS.settings.accent;
+    if (!["violet", "cyan", "blue", "neon", "emerald", "rose"].includes(s.settings.accent)) s.settings.accent = DEFAULTS.settings.accent;
     if (!["easy", "normal", "hard"].includes(s.settings.difficulty)) s.settings.difficulty = DEFAULTS.settings.difficulty;
     ["reduceMotion", "toasts", "autoPreview"].forEach((k) => { s.settings[k] = !!s.settings[k]; });
+    if (s.settings.networkMode !== "external") s.settings.networkMode = "local";
+    s.settings.rememberApiKeys = !!s.settings.rememberApiKeys;
+    // Kunci API tidak pernah dipulihkan dari localStorage; hanya sessionStorage bila diizinkan.
     s.notes = typeof s.notes === "string" ? s.notes : "";
     s.clipboard = Array.isArray(s.clipboard) ? s.clipboard.filter((x) => x && typeof x.text === "string").slice(0, 30) : [];
     s.daily = isPlainObject(s.daily) ? {
@@ -223,8 +230,8 @@
     if (!state.settings.toasts) return;
     const stack = $("#toastStack");
     if (!stack) return;
-    const icons = { ok: "✓", err: "!", info: "◈" };
-    const t = node(`<div class="toast ${type || "info"}"><span class="ti">${icons[type] || "◈"}</span><span>${escapeHtml(message)}</span></div>`);
+    const icons = { ok: "check", err: "alert", info: "sparkle" };
+    const t = node(`<div class="toast ${type || "info"}"><span class="ti">${ico(icons[type] || "sparkle")}</span><span>${escapeHtml(message)}</span></div>`);
     stack.appendChild(t);
     const life = ms || 3200;
     const timer = setTimeout(() => {
@@ -254,7 +261,7 @@
     closeModal();
     const root = $("#modalRoot");
     const wrap = node(`<div class="modal" role="dialog" aria-modal="true" aria-label="${escapeHtml(options.title || "Dialog")}">
-      <div class="modal-head"><h3>${escapeHtml(options.title || "Dialog")}</h3><button class="icon-btn" data-close type="button" aria-label="Tutup">✕</button></div>
+      <div class="modal-head"><h3>${escapeHtml(options.title || "Dialog")}</h3><button class="icon-btn" data-close type="button" aria-label="Tutup">${ico("close")}</button></div>
       <div class="modal-body"></div>
       <div class="modal-foot"></div>
     </div>`);
