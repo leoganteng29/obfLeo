@@ -35,16 +35,7 @@
       paths: [/^\/embed\//, /^\/track\//, /^\/artist\//, /^\/album\//, /^\/playlist\//],
       label: "Spotify Embed"
     },
-    "api.openai.com": { paths: [/^\/v1\//], label: "OpenAI API" },
-    "api.anthropic.com": { paths: [/^\/v1\//], label: "Anthropic API" },
-    "generativelanguage.googleapis.com": { paths: [/^\/v1/], label: "Google Gemini API" },
-    "api.groq.com": { paths: [/^\/openai\/v1\//], label: "Groq API" },
-    "openrouter.ai": { paths: [/^\/api\/v1\//], label: "OpenRouter API" },
-    "api.mistral.ai": { paths: [/^\/v1\//], label: "Mistral API" },
-    "api.deepseek.com": { paths: [/^\/v1\//, /^\/chat\//], label: "DeepSeek API" },
-    "api.x.ai": { paths: [/^\/v1\//], label: "xAI API" },
-    "localhost": { paths: [/^\/api\//, /^\/v1\//], label: "Ollama lokal" },
-    "127.0.0.1": { paths: [/^\/api\//, /^\/v1\//], label: "Ollama lokal" }
+    "openrouter.ai": { paths: [/^\/api\/v1\//], label: "OpenRouter API" }
   });
 
   /* Origin AI kustom didaftarkan sesaat sebelum request (memory only). */

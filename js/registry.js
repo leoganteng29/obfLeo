@@ -12,7 +12,7 @@
 
   const tools = [
     { id: "js-protector", name: "JavaScript Code Protector", cat: "protection", route: "protect", icon: "shield", desc: "Lima mode transformasi source code .js + Enc Center (VM Normal/Hard/Extreme, Quantum, Mandarin, Arab, Custom Prefix): basic, renaming, compact, readability, dan custom.", kw: "obfuscate protect minify rename javascript file", badge: "PRO", featured: true },
-    { id: "ai-studio", name: "AI Coding Studio", cat: "protection", route: "ai", icon: "sparkle", desc: "Chat AI fokus coding dengan 10 provider & banyak model, persona coding/creative/debug/architect/reviewer, streaming, lampiran gambar/file, dan API key BYOK yang hanya disimpan di sesi.", kw: "ai chat gpt claude gemini groq openrouter codestral deepseek grok ollama coding assistant debug review artifact", badge: "PRO", featured: true, popular: true },
+    { id: "ai-studio", name: "AI Coding Studio", cat: "protection", route: "ai", icon: "sparkle", desc: "Chat AI fokus coding lewat OpenRouter dengan banyak model, persona coding/creative/debug/architect/reviewer, streaming, lampiran gambar/file, dan API key BYOK yang hanya disimpan di sesi.", kw: "ai chat gpt claude gemini groq openrouter codestral deepseek grok ollama coding assistant debug review artifact", badge: "PRO", featured: true, popular: true },
 
     { id: "js-formatter", name: "JavaScript Formatter", cat: "developer", route: "tools", icon: "JS", desc: "Rapikan indentation dan struktur JavaScript tanpa menjalankan kode.", kw: "beautify pretty code indent", popular: true },
     { id: "js-minifier", name: "JavaScript Minifier", cat: "developer", route: "tools", icon: "JS", desc: "Kurangi whitespace dan komentar sambil menjaga string dan literal.", kw: "compress compact", popular: true },
