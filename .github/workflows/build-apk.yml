@@ -1,0 +1,183 @@
+name: Build APK from ZIP (WebView)
+
+on:
+  workflow_dispatch:
+    inputs:
+      zip_url:
+        description: "Link https ke ZIP web (maks 2 GB)"
+        required: true
+        type: string
+      app_label:
+        description: "Nama aplikasi"
+        required: true
+        type: string
+      app_id:
+        description: "Package ID, contoh com.nama.app"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      ZIP_URL: ${{ inputs.zip_url }}
+      APP_LABEL: ${{ inputs.app_label }}
+      APP_ID: ${{ inputs.app_id }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validasi input
+        shell: bash
+        run: |
+          set -euo pipefail
+          [[ "$ZIP_URL" =~ ^https:// ]] || { echo "::error::Link ZIP harus https://"; exit 1; }
+          [[ "$APP_LABEL" =~ ^[A-Za-z0-9\ _-]{1,40}$ ]] || { echo "::error::Nama aplikasi tidak valid"; exit 1; }
+          [[ "$APP_ID" =~ ^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$ ]] || { echo "::error::Package ID tidak valid"; exit 1; }
+
+      - name: Unduh ZIP (maks 2 GB)
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p incoming
+          curl -fL --retry 3 --max-filesize 2147483648 -o incoming/source.zip "$ZIP_URL"
+          ls -lh incoming/source.zip
+
+      - name: Ekstrak dan cari index.html
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf web && mkdir web
+          unzip -q incoming/source.zip -d web
+          INDEX="$(find web -name index.html -not -path '*/node_modules/*' | head -1)"
+          if [ -z "$INDEX" ]; then echo "::error::ZIP tidak berisi index.html"; exit 1; fi
+          SRC="$(dirname "$INDEX")"
+          echo "WEB_SRC=$SRC" >> "$GITHUB_ENV"
+          echo "Sumber web: $SRC"
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - uses: android-actions/setup-android@v3
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.7"
+
+      - name: Buat project Android WebView
+        shell: bash
+        run: |
+          set -euo pipefail
+          P=android-app
+          mkdir -p "$P/app/src/main/java/app" "$P/app/src/main/assets"
+          cp -r "$WEB_SRC"/. "$P/app/src/main/assets/"
+
+          cat > "$P/settings.gradle" <<'G'
+          pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
+          dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
+          rootProject.name = "webview-app"
+          include ':app'
+          G
+
+          cat > "$P/build.gradle" <<'G'
+          plugins { id 'com.android.application' version '8.5.2' apply false }
+          G
+
+          cat > "$P/app/build.gradle" <<G
+          plugins { id 'com.android.application' }
+          android {
+              namespace '$APP_ID'
+              compileSdk 34
+              defaultConfig {
+                  applicationId '$APP_ID'
+                  minSdk 21
+                  targetSdk 34
+                  versionCode 1
+                  versionName '1.0'
+              }
+              compileOptions {
+                  sourceCompatibility JavaVersion.VERSION_17
+                  targetCompatibility JavaVersion.VERSION_17
+              }
+          }
+          G
+
+          cat > "$P/app/src/main/AndroidManifest.xml" <<G
+          <?xml version="1.0" encoding="utf-8"?>
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <uses-permission android:name="android.permission.INTERNET" />
+              <application
+                  android:label="$APP_LABEL"
+                  android:usesCleartextTraffic="false"
+                  android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+                  <activity android:name=".MainActivity" android:exported="true" android:configChanges="orientation|screenSize|keyboardHidden">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN" />
+                          <category android:name="android.intent.category.LAUNCHER" />
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          G
+
+          # MainActivity memakai WebView bawaan (tanpa AppCompat) agar dependensi minimal.
+          cat > "$P/app/src/main/java/app/MainActivity.java" <<'J'
+          package app;
+
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.webkit.WebSettings;
+          import android.webkit.WebView;
+          import android.webkit.WebViewClient;
+
+          public class MainActivity extends Activity {
+              private WebView webView;
+
+              @Override
+              protected void onCreate(Bundle savedInstanceState) {
+                  super.onCreate(savedInstanceState);
+                  webView = new WebView(this);
+                  WebSettings s = webView.getSettings();
+                  s.setJavaScriptEnabled(true);
+                  s.setDomStorageEnabled(true);
+                  s.setAllowFileAccess(true);
+                  webView.setWebViewClient(new WebViewClient());
+                  webView.loadUrl("file:///android_asset/index.html");
+                  setContentView(webView);
+              }
+
+              @Override
+              public void onBackPressed() {
+                  if (webView != null && webView.canGoBack()) webView.goBack();
+                  else super.onBackPressed();
+              }
+          }
+          J
+
+      - name: Build APK debug (sudah ditandatangani otomatis)
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd android-app
+          gradle :app:assembleDebug --no-daemon --stacktrace
+
+      - name: Kumpulkan APK
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p output
+          APK="$(find android-app/app/build/outputs/apk/debug -name '*.apk' | head -1)"
+          if [ -z "$APK" ]; then echo "::error::APK tidak ditemukan"; exit 1; fi
+          cp "$APK" "output/${APP_ID}.apk"
+          ls -lh output
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: apk-${{ inputs.app_id }}
+          path: output/*.apk
+          retention-days: 7

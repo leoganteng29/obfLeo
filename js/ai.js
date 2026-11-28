@@ -80,6 +80,13 @@
   }
   reconcileModel();
 
+  /* Base URL proxy OpenRouter. Kosong = same-origin (Vercel). Di APK WebView diisi
+     window.NEXUS_API_BASE = "https://domain-anda.vercel.app" pada js/ai-key.local.js. */
+  function apiBase() {
+    const b = String(window.NEXUS_API_BASE || "").trim().replace(/\/+$/, "");
+    return /^https:\/\/|^http:\/\/localhost/.test(b) ? b : "";
+  }
+
   /* API key dibaca dari js/ai-key.local.js (file lokal, bukan dari UI/zip publik). */
   function applyLocalConfig() {
     const keys = window.NEXUS_AI_KEYS;
@@ -287,7 +294,7 @@
     else { body.temperature = Number(settings.temperature); body.max_tokens = Number(settings.maxTokens); }
     let res;
     try {
-      const endpoint = p.id === "openrouter" ? "/api/chat" : base + "/chat/completions";
+      const endpoint = p.id === "openrouter" ? apiBase() + "/api/chat" : base + "/chat/completions";
       if (p.id === "openrouter") {
         headers["Content-Type"] = "application/json";
       }
@@ -328,7 +335,7 @@
         .map((m) => String(m.name || "").replace(/^models\//, "")));
     }
     const headers = {};
-    let url = p.id === "openrouter" ? "/api/models" : baseUrl() + "/models";
+    let url = p.id === "openrouter" ? apiBase() + "/api/models" : baseUrl() + "/models";
     if (p.id === "anthropic") {
       headers["x-api-key"] = key;
       headers["anthropic-version"] = "2023-06-01";

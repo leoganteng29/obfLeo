@@ -322,7 +322,7 @@
         <div class="dash-actions">
           <div class="dash-tools">
             <span class="dash-date"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><rect x="3.5" y="5.5" width="17" height="15" rx="3" stroke="currentColor" stroke-width="1.7"/><path d="M8 3v5m8-5v5M3.5 10h17" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg>${esc(dateLabel)}</span>
-            <label class="dash-search" data-dash-search><svg viewBox="0 0 24 24" fill="none"><circle cx="10.8" cy="10.8" r="6.3" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4.4 4.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><input type="search" placeholder="Cari tools..." aria-label="Cari tools" readonly><kbd>Ctrl K</kbd></label>
+            <label class="dash-search" data-dash-search><svg viewBox="0 0 24 24" fill="none"><circle cx="10.8" cy="10.8" r="6.3" stroke="currentColor" stroke-width="1.8"/><path d="m16 16 4.4 4.4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg><input type="search" placeholder="Cari tools..." aria-label="Cari tools" readonly></label>
             <button class="icon-btn" data-notify type="button" aria-label="Notifikasi" data-tip="Notifikasi"><svg viewBox="0 0 24 24" fill="none"><path d="M18 9a6 6 0 1 0-12 0c0 5-2 6-2 6h16s-2-1-2-6Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/><path d="M10 19a2 2 0 0 0 4 0" stroke="currentColor" stroke-width="1.7" stroke-linecap="round"/></svg></button>
             <button class="btn btn-outline-plus" data-go="tools" type="button" aria-label="Buka semua tools">+</button>
           </div>

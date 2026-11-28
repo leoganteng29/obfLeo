@@ -27,10 +27,10 @@
 
   const publicFiles = [
     "index.html", "README.md", "build-public.cjs", "package.json", "vercel.json",
-    ".gitignore", ".env.example", "api/chat.js", "api/models.js", "css/glass.css",
+    ".gitignore", ".env.example", "api/chat.js", "api/models.js", "api/build-apk.js", "api/build-status.js", ".github/workflows/build-apk.yml", "css/glass.css",
     "css/ai.css", "css/modern.css", "css/styles.css",
     "js/ai-key.local.js", "js/ai.js", "js/app.js", "js/code-tools.js", "js/core.js",
-    "js/fx.js", "js/games.js", "js/icons.js", "js/music.js", "js/photolive.js",
+    "js/fx.js", "js/games.js", "js/icons.js", "js/ubot-tools.js", "js/music.js", "js/photolive.js",
     "js/protection.js", "js/qr.js", "js/registry.js", "js/security.js",
     "js/utility-tools.js",
     "vendor/gsap.min.js", "vendor/ScrollTrigger.min.js", "vendor/SplitText.min.js",

@@ -36,12 +36,12 @@ html[data-accent="violet"] {
   --bad: #B0173F;
 
   /* Glass tokens */
-  --glass-fill: linear-gradient(145deg, rgba(255, 255, 255, .78), rgba(255, 255, 255, .46));
-  --glass-fill-strong: linear-gradient(145deg, rgba(255, 255, 255, .92), rgba(255, 255, 255, .66));
+  --glass-fill: linear-gradient(145deg, rgba(255, 255, 255, .34), rgba(255, 255, 255, .12));
+  --glass-fill-strong: linear-gradient(145deg, rgba(255, 255, 255, .58), rgba(255, 255, 255, .26));
   --glass-tint: linear-gradient(145deg, rgba(167, 139, 250, .22), rgba(184, 229, 255, .18));
-  --glass-border: rgba(255, 255, 255, .78);
+  --glass-border: rgba(255, 255, 255, .62);
   --glass-highlight: inset 0 1px 0 rgba(255, 255, 255, .96), inset 0 -1px 0 rgba(81, 69, 217, .06);
-  --glass-blur: blur(22px) saturate(160%);
+  --glass-blur: blur(26px) saturate(180%);
   --glass-shadow:
     0 1px 2px rgba(23, 21, 75, .05),
     0 10px 26px rgba(23, 21, 75, .08),
@@ -67,16 +67,20 @@ body {
     linear-gradient(180deg, #F8F7F2 0%, #EAE8FF 58%, #E7F3FF 100%);
   background-attachment: fixed;
 }
-/* Lapisan kabut halus; tidak dipakai pada layar kecil agar performa tetap ringan. */
+/* Blob warna di belakang kaca. Tanpa latar berwarna, efek kaca tidak akan terlihat. */
 body::before {
   content: "";
   position: fixed;
-  inset: -20%;
+  inset: -15%;
   pointer-events: none;
   z-index: 0;
-  background: conic-gradient(from 210deg at 50% 50%, rgba(167, 139, 250, .14), rgba(184, 229, 255, .16), rgba(167, 139, 250, .14));
-  filter: blur(80px);
-  opacity: .8;
+  background:
+    radial-gradient(46% 40% at 18% 22%, rgba(167, 139, 250, .85), transparent 70%),
+    radial-gradient(42% 38% at 86% 14%, rgba(96, 165, 250, .6), transparent 70%),
+    radial-gradient(48% 42% at 72% 84%, rgba(81, 69, 217, .55), transparent 70%),
+    radial-gradient(40% 36% at 12% 90%, rgba(184, 229, 255, .9), transparent 70%);
+  filter: blur(18px);
+  opacity: .9;
 }
 .cloud { background: rgba(255, 255, 255, .7); }
 
@@ -229,11 +233,13 @@ textarea::placeholder {
 /* 8. Layout fixes -------------------------------------------------------- */
 /* Header area dan aksi bisa turun baris di layar sempit tanpa memotong label. */
 .workspace-head,
-.topbar-actions,
 .view .panel-head {
   flex-wrap: wrap;
   gap: 10px;
 }
+/* Topbar tetap satu baris di ponsel; aksinya tidak boleh turun ke baris kedua. */
+.topbar { flex-wrap: nowrap; }
+.topbar-actions { flex-wrap: nowrap; flex-shrink: 0; }
 .view .btn,
 .view button.btn {
   white-space: nowrap;
@@ -256,7 +262,6 @@ textarea::placeholder {
     transition-duration: .01ms !important;
     scroll-behavior: auto !important;
   }
-  body::before { display: none; }
 }
 
 /* 10. Mobile: kurangi biaya blur agar nyaman di Android kelas menengah --- */
@@ -269,7 +274,6 @@ textarea::placeholder {
     -webkit-backdrop-filter: blur(12px) saturate(140%);
     backdrop-filter: blur(12px) saturate(140%);
   }
-  body::before { display: none; }
   .card,
   .panel { border-radius: var(--radius-lg); }
 }
@@ -292,3 +296,147 @@ textarea::placeholder {
 }
 .link:hover { background: #FFFFFF; transform: translateY(-1px); }
 .link svg { width: 14px; height: 14px; }
+
+/* 12. Bentuk: tidak ada lagi persegi tajam. Setiap kotak menjadi kartu membulat. */
+.card,
+.panel,
+.workspace-head,
+.topbar,
+.bottom-nav,
+.tool-card,
+.dropzone,
+.preview-box,
+.modal,
+.search-results,
+.ub-cipher,
+.ub-geo,
+.ub-fin,
+.ub-bill,
+.ub-big,
+.ub-pre,
+.ub-quiz,
+.ub-world {
+  border-radius: 26px;
+}
+.result-row,
+.mini-row,
+.file-chip,
+.notice,
+.score-pill,
+.search-result,
+.md-render pre,
+.ub-counter,
+.ub-font-card,
+.ub-result,
+.ub-pre,
+.ub-big {
+  border-radius: 20px;
+}
+.stat-icon,
+.insight-icon,
+.tool-card .tc-icon,
+.game-tile .gt-icon,
+.uc-icon,
+.mini-row .mi,
+.file-chip .fi,
+.sr-icon,
+.search-result .sr-icon,
+.side-add,
+.star-btn,
+.progress-ring,
+.brand-mark {
+  border-radius: 16px;
+}
+.tile,
+.cell,
+.letter,
+.scramble-letters button,
+.dpad button,
+.snake-wrap canvas,
+.md-render code {
+  border-radius: 18px;
+}
+.btn,
+.chip,
+.badge,
+.nav-badge,
+.side-link,
+.cat-link,
+.segmented,
+.segmented button,
+.icon-btn,
+.nav-item,
+.search-field,
+.link,
+.ub-opt,
+.ub-tabs button {
+  border-radius: 999px;
+}
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+select,
+textarea,
+.ub-field input,
+.ub-field textarea,
+.ub-select {
+  border-radius: 18px;
+}
+
+/* 13. Komponen toolkit (ub-*). */
+.mb-12 { margin-bottom: 12px; }
+.ub-tabs { display: flex; flex-wrap: wrap; gap: 8px; width: 100%; padding: 6px; height: auto; }
+.ub-tabs button { flex: 0 0 auto; min-height: 36px; padding: 6px 14px; border: 1px solid rgba(255, 255, 255, .6); background: rgba(255, 255, 255, .35); color: var(--g-navy); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; transition: background var(--t), transform var(--t); }
+.ub-tabs button:hover { background: rgba(255, 255, 255, .6); }
+.ub-tabs button.active { color: #FFFFFF; background: linear-gradient(135deg, #8B7CF6, #5145D9); border-color: transparent; box-shadow: 0 8px 18px rgba(81, 69, 217, .3); }
+.ub-field { display: grid; gap: 6px; margin: 0; min-width: 0; }
+.ub-field[hidden] { display: none; }
+.ub-field > span { font-size: 12px; font-weight: 600; color: var(--muted); }
+.ub-field input, .ub-field textarea, .ub-select {
+  width: 100%; min-height: 46px; padding: 10px 16px; font: inherit; font-size: 15px;
+  color: var(--g-navy); background: rgba(255, 255, 255, .5); border: 1px solid rgba(81, 69, 217, .22);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8);
+  transition: border-color var(--t), box-shadow var(--t), background var(--t);
+}
+.ub-field textarea { resize: vertical; min-height: 110px; }
+.ub-field input:focus, .ub-field textarea:focus, .ub-select:focus {
+  outline: none; background: rgba(255, 255, 255, .8); border-color: var(--g-indigo); box-shadow: 0 0 0 3px rgba(167, 139, 250, .32);
+}
+.ub-field input::placeholder, .ub-field textarea::placeholder { color: #6B6897; opacity: 1; }
+.ub-select { appearance: auto; }
+.ub-form { display: grid; gap: 12px; }
+.ub-inline { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; }
+.ub-inline .ub-field { flex: 1 1 180px; }
+.ub-grid2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ub-grid3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.ub-out { min-width: 0; }
+.ub-result { display: grid; gap: 8px; }
+.ub-pre { margin: 0; padding: 14px 16px; white-space: pre-wrap; word-break: break-word; font-family: var(--mono); font-size: 13px; color: var(--g-navy); background: rgba(255, 255, 255, .45); border: 1px solid rgba(255, 255, 255, .6); }
+.ub-big { display: grid; gap: 6px; padding: 18px; text-align: center; background: rgba(255, 255, 255, .42); border: 1px solid rgba(255, 255, 255, .6); }
+.ub-big span { color: var(--muted); font-size: 14px; word-break: break-word; }
+.ub-big strong { font-size: clamp(18px, 4vw, 26px); color: var(--g-navy); word-break: break-word; }
+.ub-coin { font-size: 40px; color: var(--g-indigo); }
+.ub-code { font-family: var(--mono); font-size: 12px; word-break: break-all; }
+.ub-q { font-size: 18px; font-weight: 600; margin: 4px 0 14px; color: var(--g-navy); }
+.ub-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.ub-opt { min-height: 48px; padding: 10px 14px; border: 1px solid rgba(255, 255, 255, .7); background: rgba(255, 255, 255, .45); color: var(--g-navy); font: inherit; font-weight: 600; cursor: pointer; transition: background var(--t), transform var(--t); }
+.ub-opt:hover:not(:disabled) { background: rgba(255, 255, 255, .8); transform: translateY(-1px); }
+.ub-opt:disabled { cursor: default; }
+.ub-opt.ok { background: #CFF5E4; border-color: #3CB58A; }
+.ub-opt.bad { background: #FFE0E8; border-color: #D9456B; }
+.ok-text { color: var(--good); font-weight: 600; }
+.bad-text { color: var(--bad); font-weight: 600; }
+.ub-fonts { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.ub-font-card { display: grid; gap: 8px; padding: 14px 16px; background: rgba(255, 255, 255, .42); border: 1px solid rgba(255, 255, 255, .6); min-width: 0; }
+.ub-font-meta { display: flex; justify-content: space-between; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); font-weight: 600; }
+.ub-font-text { font-size: 18px; line-height: 1.35; word-break: break-word; color: var(--g-navy); }
+.ub-counter { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px; margin-bottom: 10px; background: rgba(255, 255, 255, .42); border: 1px solid rgba(255, 255, 255, .6); min-width: 0; }
+.ub-counter > div:first-child { min-width: 0; flex: 1 1 160px; }
+.ub-trunc { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.ub-world { display: grid; gap: 8px; }
+.ub-list { display: grid; gap: 0; }
+.ub-score { font-weight: 600; color: var(--muted); }
+.ub-keywrap { margin-top: 12px; }
+@media (max-width: 640px) {
+  .ub-grid2, .ub-grid3 { grid-template-columns: 1fr; }
+  .ub-opts { grid-template-columns: 1fr; }
+  .ub-font-text { font-size: 16px; }
+}

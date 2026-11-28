@@ -110,3 +110,34 @@ AI Studio mengirim request ke `/api/chat` dan `/api/models`. Kedua endpoint Verc
 - Perbaikan: placeholder pencarian sidebar terlihat; tombol primer tidak lagi berubah menjadi putih-di-putih saat hover; tautan "Laporan" tidak pecah baris; target sentuh 44px pada perangkat sentuh; `prefers-reduced-motion` dihormati.
 - `build-public.cjs` kini ikut menyertakan `api/`, `vercel.json`, `package.json`, `.gitignore`, `.env.example`. Sebelumnya folder `api/` tidak masuk ZIP publik sehingga proksi AI tidak ikut ter-deploy.
 - Deploy: set `OPENROUTER_API_KEY` di Vercel Project Settings > Environment Variables, lalu deploy ulang.
+
+## v2 — Toolkit + kaca yang terlihat
+- **Toolkit baru** (`js/ubot-tools.js`) — fitur dari plugin bot yang berjalan offline di browser: Cipher & Encode Lab, Font Unicode, Konverter Satuan, Kalkulator Geometri, Tanggal & Waktu, Finansial Indonesia, Belanja & Estimasi, Generator Data Palsu, Fun Lab, Kuis & Trivia, Penghitung, Pelacak Kebiasaan, Bookmark, Pencatat Stok, dan Agenda. Semua hasil dihitung lokal, dan data tersimpan di browser.
+- **Tidak dipindahkan** (butuh server atau akun Telegram, bukan logika web): perintah admin grup (kick, mute, tagall, pin), auto-reply, downloader YouTube/Spotify, pembuat sticker/brat/carbon, panel installer, SSH, sistem lisensi/kredit/voucher, dan backup bot.
+- **Kaca**: latar berwarna di belakang kartu sehingga efek blur terlihat. Permukaan lebih tembus pandang.
+- **Bentuk**: semua kotak jadi kartu membulat. Tombol dan chip berbentuk pil.
+- "Ctrl K" dihapus dari tampilan.
+- **APK WebView**: `js/ai.js` membaca `window.NEXUS_API_BASE` (mis. `https://domain-anda.vercel.app`) agar proksi AI tetap bisa dipanggil dari APK. Kosongkan untuk pemakaian di Vercel.
+
+## Build APK dari website
+Satu ZIP ini berisi website sekaligus pembuat APK. Alurnya: ZIP web Anda di-hosting sebagai link https (maks 2 GB), lalu di tool **Build APK dari ZIP** (menu Utilities) Anda memasukkan link itu. Vercel memicu workflow `.github/workflows/build-apk.yml`, GitHub Actions membangun APK Android WebView, dan APK muncul sebagai artifact di halaman Actions.
+
+**Setup sekali saja:**
+1. Pastikan folder `.github/workflows/` ikut ter-push ke branch utama repo.
+2. Di Vercel → Project → Settings → Environment Variables, isi:
+   - `GITHUB_TOKEN`: fine-grained personal access token untuk repo ini dengan izin **Actions: Read and write** dan **Contents: Read**.
+   - `GITHUB_REPO`: `leoganteng29/obfLeo`
+   - `BUILD_SECRET`: kata sandi bebas. Anda memasukkannya di tool setiap kali build.
+   - `GITHUB_REF` (opsional): nama branch, default `main`.
+3. Deploy ulang. Token GitHub hanya ada di server Vercel dan tidak pernah dikirim ke browser.
+
+**Menghosting ZIP (contoh lewat Termux):**
+```bash
+gh release create v1 "/storage/emulated/0/a new obf web/app.zip" --repo leoganteng29/obfLeo --title "source v1" --notes "ZIP web"
+```
+Salin link asset dari halaman release, lalu tempel di tool.
+
+**Batasan jujur:**
+- APK yang dihasilkan adalah build debug (sudah ditandatangani otomatis oleh Android). Untuk Play Store perlu keystore release.
+- AI di dalam APK hanya jalan bila `NEXUS_API_BASE` diisi, misalnya di `js/ai-key.local.js`: `window.NEXUS_API_BASE = "https://domain-anda.vercel.app";`
+- Website tidak menerima file ZIP langsung karena fungsi Vercel menolak body besar.

@@ -1173,7 +1173,7 @@
       N.core.trackTool("photolive", "utility");
       return;
     }
-    const fn = impl[id];
+    const fn = impl[id] || (N.toolkit && N.toolkit.impl[id]);
     const tool = N.registry.get(id);
     if (!fn || !tool) { host.innerHTML = '<div class="empty"><strong>Utility tidak ditemukan.</strong></div>'; return; }
     fn(host, tool);
