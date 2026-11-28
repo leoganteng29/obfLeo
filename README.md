@@ -120,24 +120,24 @@ AI Studio mengirim request ke `/api/chat` dan `/api/models`. Kedua endpoint Verc
 - **APK WebView**: `js/ai.js` membaca `window.NEXUS_API_BASE` (mis. `https://domain-anda.vercel.app`) agar proksi AI tetap bisa dipanggil dari APK. Kosongkan untuk pemakaian di Vercel.
 
 ## Build APK dari website
-Satu ZIP ini berisi website sekaligus pembuat APK. Alurnya: ZIP web Anda di-hosting sebagai link https (maks 2 GB), lalu di tool **Build APK dari ZIP** (menu Utilities) Anda memasukkan link itu. Vercel memicu workflow `.github/workflows/build-apk.yml`, GitHub Actions membangun APK Android WebView, dan APK muncul sebagai artifact di halaman Actions.
+Dua tool di menu Utilities, keduanya upload ZIP langsung di website:
+- **Build APK Flutter**: ZIP wajib berisi `pubspec.yaml` dan folder `android/`. Jika tidak ada, build ditolak. Package ID dibaca dari `applicationId` di `android/app/build.gradle`, dan nama app dari `AndroidManifest.xml`.
+- **Web to APK**: ZIP wajib berisi `index.html`. Website dibungkus jadi APK Android WebView. Nama app diambil dari `<title>`, package ID dibuat otomatis.
+
+Alurnya: ZIP diupload ke Vercel Blob (maks 2 GB) lewat `/api/blob-upload`, lalu `/api/build-apk` memicu workflow `.github/workflows/build-apk.yml`. GitHub Actions membangun APK dan menaruhnya sebagai artifact bernama `<nama>-<package>`.
 
 **Setup sekali saja:**
 1. Pastikan folder `.github/workflows/` ikut ter-push ke branch utama repo.
-2. Di Vercel → Project → Settings → Environment Variables, isi:
-   - `GITHUB_TOKEN`: fine-grained personal access token untuk repo ini dengan izin **Actions: Read and write** dan **Contents: Read**.
+2. Di Vercel → Storage → Create → **Blob**, lalu hubungkan ke project ini. Vercel otomatis membuat env `BLOB_READ_WRITE_TOKEN`.
+3. Di Vercel → Project → Settings → Environment Variables, isi:
+   - `GITHUB_TOKEN`: token GitHub dengan izin **Actions: Read and write** dan **Contents: Read** untuk repo ini.
    - `GITHUB_REPO`: `leoganteng29/obfLeo`
    - `BUILD_SECRET`: kata sandi bebas. Anda memasukkannya di tool setiap kali build.
    - `GITHUB_REF` (opsional): nama branch, default `main`.
-3. Deploy ulang. Token GitHub hanya ada di server Vercel dan tidak pernah dikirim ke browser.
-
-**Menghosting ZIP (contoh lewat Termux):**
-```bash
-gh release create v1 "/storage/emulated/0/a new obf web/app.zip" --repo leoganteng29/obfLeo --title "source v1" --notes "ZIP web"
-```
-Salin link asset dari halaman release, lalu tempel di tool.
+4. Deploy ulang. Dependensi `@vercel/blob` dipasang otomatis dari `package.json`. Token GitHub dan token Blob hanya ada di server Vercel dan tidak pernah dikirim ke browser.
 
 **Batasan jujur:**
 - APK yang dihasilkan adalah build debug (sudah ditandatangani otomatis oleh Android). Untuk Play Store perlu keystore release.
 - AI di dalam APK hanya jalan bila `NEXUS_API_BASE` diisi, misalnya di `js/ai-key.local.js`: `window.NEXUS_API_BASE = "https://domain-anda.vercel.app";`
-- Website tidak menerima file ZIP langsung karena fungsi Vercel menolak body besar.
+- File ZIP disimpan di Vercel Blob dengan link publik. Siapa pun yang memegang link bisa mengunduhnya, jadi jangan upload kode rahasia.
+- Alur ini belum diuji end-to-end di lingkungan nyata. Coba dulu dengan ZIP kecil.

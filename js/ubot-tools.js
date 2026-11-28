@@ -983,25 +983,28 @@
     N.core.trackTool(tool.id, "utility");
   };
 
-  /* ------------------------------ 16. Build APK dari ZIP ------------------------------ */
-  impl["apk-builder"] = (host, tool) => {
+  /* ------------------------------ 16. Build APK: Flutter & Web to APK ------------------------------ */
+  const BLOB_CLIENT_URL = "https://cdn.jsdelivr.net/npm/@vercel/blob@2.8.0/client/+esm";
+  const apkBuilder = (mode, title) => (host, tool) => {
     const KEY = "nexus.apk.secret";
     let secret = "";
     try { secret = window.sessionStorage.getItem(KEY) || ""; } catch (e) { /* opsional */ }
+    const isFlutter = mode === "flutter";
     host.innerHTML = head(tool) + `<div class="card card-pad mt-16">
-      <p class="hint">ZIP web bisa sampai 2 GB. Website tidak menerima file ZIP langsung. Hosting dulu ZIP di GitHub Release lalu tempel linknya di sini.</p>
+      <p class="hint">${isFlutter
+        ? "Upload ZIP project Flutter (wajib ada pubspec.yaml dan folder android/). Package ID dan nama APK dibaca otomatis dari ZIP."
+        : "Upload ZIP website (wajib ada index.html di dalamnya). Website dibungkus jadi APK Android WebView. Nama dan package ID dibuat otomatis dari judul halaman."}
+        ZIP bisa sampai 2 GB.</p>
       <form class="ub-form mt-12" novalidate>
-        <label class="ub-field"><span>Link ZIP (https://)</span><input name="zip" maxlength="2048" autocomplete="off" placeholder="https://github.com/.../releases/download/.../app.zip"></label>
-        <div class="ub-grid2">
-          <label class="ub-field"><span>Nama aplikasi</span><input name="label" maxlength="40" autocomplete="off" placeholder="NEXUS Toolbox"></label>
-          <label class="ub-field"><span>Package ID</span><input name="pkg" maxlength="120" autocomplete="off" placeholder="com.nama.app"></label>
-        </div>
+        <label class="ub-field"><span>File ZIP</span><input name="zip" type="file" accept=".zip,application/zip" required></label>
         <label class="ub-field"><span>Kode akses build</span><input name="secret" type="password" maxlength="200" autocomplete="off" value="${esc(secret)}"></label>
-        <div class="row"><button class="btn btn-primary" type="submit">Build APK</button><button class="btn" type="button" data-status>Cek status</button></div>
+        <div class="row"><button class="btn btn-primary" type="submit">${esc(title)}</button><button class="btn" type="button" data-status>Cek status</button></div>
+        <div class="ub-progress hint" hidden></div>
       </form>
       <div class="ub-out mt-16" aria-live="polite"></div></div>`;
     const out = host.querySelector(".ub-out");
     const form = host.querySelector("form");
+    const progress = host.querySelector(".ub-progress");
     const req = (path, init) => fetch(path, init).then(async (r) => {
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || "Permintaan gagal (" + r.status + ").");
@@ -1021,20 +1024,50 @@
         .then((d) => showRuns(d.runs || []))
         .catch((err) => { out.innerHTML = notice(err.message); });
     };
-    form.addEventListener("submit", (e) => {
+    form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const payload = { zip_url: form.elements.zip.value.trim(), app_label: form.elements.label.value.trim(), app_id: form.elements.pkg.value.trim() };
-      const s = form.elements.secret.value;
+      const file = form.elements.zip.files[0];
+      const s = form.elements.secret.value.trim();
+      if (!file) { out.innerHTML = notice("Pilih file ZIP dulu."); return; }
+      if (!/\.zip$/i.test(file.name)) { out.innerHTML = notice("File harus berformat .zip."); return; }
+      if (file.size > 2147483648) { out.innerHTML = notice("ZIP melebihi batas 2 GB."); return; }
+      if (!s) { out.innerHTML = notice("Masukkan kode akses build."); return; }
       try { window.sessionStorage.setItem(KEY, s); } catch (err) { /* opsional */ }
-      out.innerHTML = '<p class="hint">Mengirim permintaan build…</p>';
-      req("/api/build-apk", { method: "POST", headers: { "Content-Type": "application/json", "x-build-secret": s }, body: JSON.stringify(payload) })
-        .then((d) => { out.innerHTML = `<div class="ub-big"><strong>${esc(d.message)}</strong></div><p class="hint mt-12"><a href="${esc(d.runsUrl)}" target="_blank" rel="noopener noreferrer">Lihat semua run di GitHub</a></p>`; setTimeout(checkStatus, 4000); })
-        .catch((err) => { out.innerHTML = notice(err.message); });
+      const submit = form.querySelector("button[type=submit]");
+      submit.disabled = true;
+      progress.hidden = false;
+      progress.textContent = "Mengunggah ZIP ke penyimpanan…";
+      out.innerHTML = "";
+      try {
+        const { upload } = await import(BLOB_CLIENT_URL);
+        const blob = await upload(file.name, file, {
+          access: "public",
+          handleUploadUrl: "/api/blob-upload",
+          clientPayload: s,
+          multipart: true,
+          onUploadProgress: (p) => { progress.textContent = "Mengunggah ZIP… " + Math.round(p.percentage || 0) + "%"; },
+        });
+        progress.textContent = "Upload selesai. Mengirim permintaan build…";
+        const d = await req("/api/build-apk", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "x-build-secret": s },
+          body: JSON.stringify({ mode, blob_url: blob.url }),
+        });
+        out.innerHTML = `<div class="ub-big"><strong>${esc(d.message)}</strong></div><p class="hint mt-12"><a href="${esc(d.runsUrl)}" target="_blank" rel="noopener noreferrer">Lihat semua run di GitHub</a></p>`;
+        setTimeout(checkStatus, 4000);
+      } catch (err) {
+        out.innerHTML = notice(err.message || "Upload atau build gagal.");
+      } finally {
+        submit.disabled = false;
+        progress.hidden = true;
+      }
     });
     host.querySelector("[data-status]").addEventListener("click", checkStatus);
     bindFav(host, tool.id);
     N.core.trackTool(tool.id, "utility");
   };
+  impl["apk-flutter"] = apkBuilder("flutter", "Build APK Flutter");
+  impl["web-to-apk"] = apkBuilder("web", "Build APK dari Website");
 
   /* ------------------------------ dispatcher ------------------------------ */
   N.toolkit = { impl, ids: Object.keys(impl) };
