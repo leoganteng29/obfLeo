@@ -440,3 +440,9 @@ textarea,
   .ub-opts { grid-template-columns: 1fr; }
   .ub-font-text { font-size: 16px; }
 }
+
+/* APK builder: pemilih file dan catatan mengikuti tema kaca */
+.ub-file { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.ub-file-btn { cursor: pointer; }
+.ub-file-name { overflow-wrap: anywhere; min-width: 0; }
+.ub-note:empty { display: none; }

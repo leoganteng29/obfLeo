@@ -120,11 +120,11 @@ AI Studio mengirim request ke `/api/chat` dan `/api/models`. Kedua endpoint Verc
 - **APK WebView**: `js/ai.js` membaca `window.NEXUS_API_BASE` (mis. `https://domain-anda.vercel.app`) agar proksi AI tetap bisa dipanggil dari APK. Kosongkan untuk pemakaian di Vercel.
 
 ## Build APK dari website
-Dua tool di menu Utilities, keduanya upload ZIP langsung di website:
-- **Build APK Flutter**: ZIP wajib berisi `pubspec.yaml` dan folder `android/`. Jika tidak ada, build ditolak. Package ID dibaca dari `applicationId` di `android/app/build.gradle`, dan nama app dari `AndroidManifest.xml`.
-- **Web to APK**: ZIP wajib berisi `index.html`. Website dibungkus jadi APK Android WebView. Nama app diambil dari `<title>`, package ID dibuat otomatis.
+Dua tool di menu Utilities:
+- **Build APK Flutter**: upload ZIP project Flutter (wajib ada `pubspec.yaml` dan `android/`). Package ID dan nama app dibaca otomatis dari ZIP.
+- **Web to APK**: pilih **Link website** (alamat https langsung dibungkus jadi APK) atau **ZIP website** (wajib ada `index.html`).
 
-Alurnya: ZIP diupload ke Vercel Blob (maks 2 GB) lewat `/api/blob-upload`, lalu `/api/build-apk` memicu workflow `.github/workflows/build-apk.yml`. GitHub Actions membangun APK dan menaruhnya sebagai artifact bernama `<nama>-<package>`.
+Build berjalan di GitHub Actions (`.github/workflows/build-apk.yml`), jadi tetap jalan walaupun Anda menutup halaman setelah tombol build ditekan. Yang berhenti kalau halaman ditutup adalah upload ZIP. Selama upload, browser akan menampilkan peringatan.
 
 **Setup sekali saja:**
 1. Pastikan folder `.github/workflows/` ikut ter-push ke branch utama repo.

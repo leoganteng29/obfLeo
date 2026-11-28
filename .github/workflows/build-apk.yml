@@ -1,19 +1,31 @@
-name: Build APK (Flutter / Web to APK)
+name: Build APK (Flutter / Web ZIP / Link Website)
 
 on:
   workflow_dispatch:
     inputs:
-      zip_url:
-        description: "Link ZIP dari Vercel Blob"
-        required: true
-        type: string
       mode:
-        description: "flutter = project Flutter, web = website (WebView)"
+        description: "flutter | web (ZIP website) | url (link website)"
         required: true
         type: choice
         options:
           - flutter
           - web
+          - url
+      zip_url:
+        description: "Link ZIP dari Vercel Blob (mode flutter/web)"
+        required: false
+        default: ""
+        type: string
+      site_url:
+        description: "Link website https (mode url)"
+        required: false
+        default: ""
+        type: string
+      app_label:
+        description: "Nama app (mode url, opsional)"
+        required: false
+        default: ""
+        type: string
 
 permissions:
   contents: read
@@ -23,8 +35,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      ZIP_URL: ${{ inputs.zip_url }}
       MODE: ${{ inputs.mode }}
+      ZIP_URL: ${{ inputs.zip_url }}
+      SITE_URL: ${{ inputs.site_url }}
+      INPUT_LABEL: ${{ inputs.app_label }}
     steps:
       - uses: actions/checkout@v4
 
@@ -32,69 +46,68 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          [[ "$ZIP_URL" =~ ^https://[a-zA-Z0-9.-]+\.blob\.vercel-storage\.com/ ]] || { echo "::error::Link ZIP harus dari Vercel Blob"; exit 1; }
-          [[ "$MODE" == "flutter" || "$MODE" == "web" ]] || { echo "::error::Mode tidak dikenal"; exit 1; }
+          if [ "$MODE" = "url" ]; then
+            re='^https://[A-Za-z0-9.-]+(/[A-Za-z0-9._~:/%+-]*)?$'
+            [[ "$SITE_URL" =~ $re ]] || { echo "::error::Link website tidak valid (wajib https, tanpa spasi atau tanda kutip)"; exit 1; }
+          else
+            re='^https://[a-zA-Z0-9.-]+\.blob\.vercel-storage\.com/'
+            [[ "$ZIP_URL" =~ $re ]] || { echo "::error::Link ZIP harus dari Vercel Blob"; exit 1; }
+          fi
+          [[ "$MODE" == "flutter" || "$MODE" == "web" || "$MODE" == "url" ]] || { echo "::error::Mode tidak dikenal"; exit 1; }
 
       - name: Unduh ZIP (maks 2 GB)
+        if: env.MODE != 'url'
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p incoming
+          mkdir -p incoming src
           curl -fL --retry 3 --max-filesize 2147483648 -o incoming/source.zip "$ZIP_URL"
-          ls -lh incoming/source.zip
-
-      - name: Ekstrak ZIP
-        shell: bash
-        run: |
-          set -euo pipefail
-          rm -rf src && mkdir src
           unzip -q incoming/source.zip -d src
 
-      - name: Deteksi jenis project dan baca package ID serta nama app
+      - name: Deteksi project dan baca package ID serta nama app
         shell: bash
         run: |
           set -euo pipefail
           if [ "$MODE" = "flutter" ]; then
             PUBSPEC="$(find src -name pubspec.yaml -not -path '*/build/*' | head -1)"
-            if [ -z "$PUBSPEC" ]; then
-              echo "::error::ZIP tidak berisi pubspec.yaml. Build APK hanya untuk project Flutter."
-              exit 1
-            fi
+            if [ -z "$PUBSPEC" ]; then echo "::error::ZIP tidak berisi pubspec.yaml. Build APK hanya untuk project Flutter."; exit 1; fi
             PROJECT_DIR="$(dirname "$PUBSPEC")"
-            if ! grep -q "sdk: flutter" "$PUBSPEC"; then
-              echo "::error::pubspec.yaml bukan project Flutter (tidak ada 'sdk: flutter')."; exit 1
-            fi
-            if [ ! -d "$PROJECT_DIR/android" ]; then
-              echo "::error::Folder android/ tidak ada di project Flutter ini."; exit 1
-            fi
-            GRADLE="$(ls "$PROJECT_DIR"/android/app/build.gradle* 2>/dev/null | head -1 || true)"
-            APP_ID="$(grep -E -o 'applicationId[ =]+["'"'"'][^"'"'"']+' "$GRADLE" | head -1 | sed -E 's/.*["'"'"']([^"'"'"']+)$/\1/' || true)"
-            if [ -z "$APP_ID" ]; then
-              APP_ID="$(grep -E -o 'namespace[ =]+["'"'"'][^"'"'"']+' "$GRADLE" | head -1 | sed -E 's/.*["'"'"']([^"'"'"']+)$/\1/' || true)"
-            fi
+            grep -q "sdk: flutter" "$PUBSPEC" || { echo "::error::pubspec.yaml bukan project Flutter."; exit 1; }
+            [ -d "$PROJECT_DIR/android" ] || { echo "::error::Folder android/ tidak ada di project Flutter ini."; exit 1; }
+            GRADLE="$(ls "$PROJECT_DIR"/android/app/build.gradle* | head -1)"
+            APP_ID="$(grep -E -o 'applicationId[ =]+"[^"]+"' "$GRADLE" | head -1 | sed -E 's/.*"([^"]+)"$/\1/' || true)"
+            [ -z "$APP_ID" ] && APP_ID="$(grep -E -o 'namespace[ =]+"[^"]+"' "$GRADLE" | head -1 | sed -E 's/.*"([^"]+)"$/\1/' || true)"
             MANIFEST="$PROJECT_DIR/android/app/src/main/AndroidManifest.xml"
             APP_LABEL="$(grep -o -E 'android:label="[^"]+"' "$MANIFEST" | head -1 | sed -E 's/.*="([^"]+)"/\1/' || true)"
             if [ -z "$APP_LABEL" ] || [[ "$APP_LABEL" == @string/* ]]; then
               APP_LABEL="$(grep -o -E 'name="app_name">[^<]+' "$PROJECT_DIR/android/app/src/main/res/values/strings.xml" 2>/dev/null | head -1 | sed -E 's/.*>//' || true)"
             fi
-            if [ -z "$APP_LABEL" ]; then APP_LABEL="$(grep -E '^name:' "$PUBSPEC" | sed -E 's/name:[ ]*//')"; fi
+            [ -z "$APP_LABEL" ] && APP_LABEL="$(grep -E '^name:' "$PUBSPEC" | sed -E 's/name:[ ]*//')"
             echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
-          else
+          elif [ "$MODE" = "web" ]; then
             INDEX="$(find src -name index.html -not -path '*/node_modules/*' | head -1)"
-            if [ -z "$INDEX" ]; then echo "::error::ZIP tidak berisi index.html. Mode Web to APK butuh website."; exit 1; fi
+            if [ -z "$INDEX" ]; then echo "::error::ZIP tidak berisi index.html. Mode ZIP website butuh index.html."; exit 1; fi
             echo "WEB_SRC=$(dirname "$INDEX")" >> "$GITHUB_ENV"
-            APP_LABEL="$(grep -o -i -E '<title>[^<]+' "$INDEX" | head -1 | sed -E 's/<title>//I' | tr -d '\r' || true)"
-            if [ -z "$APP_LABEL" ]; then APP_LABEL="Web App"; fi
+            APP_LABEL="$(grep -o -i -E '<title>[^<]+' "$INDEX" | head -1 | sed -E 's/<title>//I' || true)"
+            [ -z "$APP_LABEL" ] && APP_LABEL="Web App"
             SLUG="$(echo "$APP_LABEL" | tr 'A-Z' 'a-z' | tr -cd 'a-z0-9' | cut -c1-30)"
             [ -z "$SLUG" ] && SLUG="app"
             case "$SLUG" in [a-z]*) ;; *) SLUG="a$SLUG" ;; esac
             APP_ID="com.webapp.$SLUG"
+          else
+            HOST="$(python3 -c 'import os,urllib.parse;print(urllib.parse.urlparse(os.environ["SITE_URL"]).hostname or "")')"
+            APP_LABEL="${INPUT_LABEL:-$HOST}"
+            SLUG="$(echo "$HOST" | tr 'A-Z' 'a-z' | tr -cd 'a-z0-9' | cut -c1-30)"
+            [ -z "$SLUG" ] && SLUG="app"
+            case "$SLUG" in [a-z]*) ;; *) SLUG="a$SLUG" ;; esac
+            APP_ID="com.webapp.$SLUG"
+            echo "TARGET_URL=$SITE_URL" >> "$GITHUB_ENV"
           fi
-          APP_LABEL="$(echo "$APP_LABEL" | tr -d '\r' | sed -E 's/^ +| +$//g' | cut -c1-40)"
+          # Nama dibersihkan agar aman dipakai di XML dan nama file.
+          APP_LABEL="$(echo "$APP_LABEL" | tr -d '\r' | tr -cd 'A-Za-z0-9 ._-' | sed -E 's/^ +| +$//g' | cut -c1-40)"
           [ -z "$APP_LABEL" ] && APP_LABEL="App"
           if ! [[ "$APP_ID" =~ ^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$ ]]; then
-            echo "::error::Package ID tidak valid di ZIP: '$APP_ID'. Ubah applicationId di android/app/build.gradle."
-            exit 1
+            echo "::error::Package ID tidak valid: '$APP_ID'. Ubah applicationId di build.gradle."; exit 1
           fi
           FILE_LABEL="$(echo "$APP_LABEL" | tr ' ' '-' | tr -cd 'A-Za-z0-9._-')"
           [ -z "$FILE_LABEL" ] && FILE_LABEL="app"
@@ -102,7 +115,7 @@ jobs:
           echo "APP_LABEL=$APP_LABEL" >> "$GITHUB_ENV"
           echo "FILE_LABEL=$FILE_LABEL" >> "$GITHUB_ENV"
           {
-            echo "### Terdeteksi dari ZIP"
+            echo "### Terdeteksi"
             echo "- Mode: $MODE"
             echo "- Nama app: $APP_LABEL"
             echo "- Package ID: $APP_ID"
@@ -117,7 +130,7 @@ jobs:
       - uses: android-actions/setup-android@v3
 
       - uses: gradle/actions/setup-gradle@v4
-        if: env.MODE == 'web'
+        if: env.MODE != 'flutter'
         with:
           gradle-version: "8.7"
 
@@ -133,19 +146,25 @@ jobs:
         run: |
           set -euo pipefail
           yes | sdkmanager --licenses >/dev/null 2>&1 || true
-          flutter --version
           cd "$PROJECT_DIR"
           flutter pub get
           flutter build apk --debug
 
-      - name: Build Web to APK (WebView)
-        if: env.MODE == 'web'
+      - name: Susun project WebView dan build (ZIP website / link website)
+        if: env.MODE != 'flutter'
         shell: bash
         run: |
           set -euo pipefail
           P=android-app
-          mkdir -p "$P/app/src/main/java/app" "$P/app/src/main/assets"
-          cp -r "$WEB_SRC"/. "$P/app/src/main/assets/"
+          PKG_DIR="$P/app/src/main/java/$(echo "$APP_ID" | tr . /)"
+          mkdir -p "$PKG_DIR" "$P/app/src/main/assets"
+          if [ "$MODE" = "web" ]; then
+            cp -r "$WEB_SRC"/. "$P/app/src/main/assets/"
+            export TARGET="file:///android_asset/index.html"
+          else
+            export TARGET="$TARGET_URL"
+          fi
+          export APP_ID APP_LABEL PKG_DIR
           cat > "$P/settings.gradle" <<'G'
           pluginManagement { repositories { google(); mavenCentral(); gradlePluginPortal() } }
           dependencyResolutionManagement { repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS); repositories { google(); mavenCentral() } }
@@ -155,32 +174,34 @@ jobs:
           cat > "$P/build.gradle" <<'G'
           plugins { id 'com.android.application' version '8.5.2' apply false }
           G
-          cat > "$P/app/build.gradle" <<G
-          plugins { id 'com.android.application' }
-          android {
-              namespace '$APP_ID'
+          python3 - <<'PY'
+          import os
+          p = os.environ["P"] if "P" in os.environ else "android-app"
+          app_id = os.environ["APP_ID"]
+          label = os.environ["APP_LABEL"]
+          target = os.environ["TARGET"]
+          pkg_dir = os.environ["PKG_DIR"]
+          open(f"{p}/app/build.gradle", "w").write(f"""plugins {{ id 'com.android.application' }}
+          android {{
+              namespace '{app_id}'
               compileSdk 34
-              defaultConfig {
-                  applicationId '$APP_ID'
+              defaultConfig {{
+                  applicationId '{app_id}'
                   minSdk 21
                   targetSdk 34
                   versionCode 1
                   versionName '1.0'
-              }
-              compileOptions {
+              }}
+              compileOptions {{
                   sourceCompatibility JavaVersion.VERSION_17
                   targetCompatibility JavaVersion.VERSION_17
-              }
-          }
-          G
-          cat > "$P/app/src/main/AndroidManifest.xml" <<G
-          <?xml version="1.0" encoding="utf-8"?>
+              }}
+          }}
+          """)
+          open(f"{p}/app/src/main/AndroidManifest.xml", "w").write(f"""<?xml version="1.0" encoding="utf-8"?>
           <manifest xmlns:android="http://schemas.android.com/apk/res/android">
               <uses-permission android:name="android.permission.INTERNET" />
-              <application
-                  android:label="$APP_LABEL"
-                  android:usesCleartextTraffic="false"
-                  android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
+              <application android:label="{label}" android:usesCleartextTraffic="false" android:theme="@android:style/Theme.DeviceDefault.NoActionBar">
                   <activity android:name=".MainActivity" android:exported="true" android:configChanges="orientation|screenSize|keyboardHidden">
                       <intent-filter>
                           <action android:name="android.intent.action.MAIN" />
@@ -189,9 +210,8 @@ jobs:
                   </activity>
               </application>
           </manifest>
-          G
-          cat > "$P/app/src/main/java/app/MainActivity.java" <<'J'
-          package app;
+          """)
+          java = """package __PKG__;
 
           import android.app.Activity;
           import android.os.Bundle;
@@ -200,6 +220,7 @@ jobs:
           import android.webkit.WebViewClient;
 
           public class MainActivity extends Activity {
+              private static final String TARGET = "__TARGET__";
               private WebView webView;
 
               @Override
@@ -211,7 +232,7 @@ jobs:
                   s.setDomStorageEnabled(true);
                   s.setAllowFileAccess(true);
                   webView.setWebViewClient(new WebViewClient());
-                  webView.loadUrl("file:///android_asset/index.html");
+                  webView.loadUrl(TARGET);
                   setContentView(webView);
               }
 
@@ -221,7 +242,10 @@ jobs:
                   else super.onBackPressed();
               }
           }
-          J
+          """
+          java = java.replace("__PKG__", app_id).replace("__TARGET__", target)
+          open(f"{pkg_dir}/MainActivity.java", "w").write(java)
+          PY
           cd "$P"
           gradle :app:assembleDebug --no-daemon --stacktrace
 

@@ -985,26 +985,44 @@
 
   /* ------------------------------ 16. Build APK: Flutter & Web to APK ------------------------------ */
   const BLOB_CLIENT_URL = "https://cdn.jsdelivr.net/npm/@vercel/blob@2.8.0/client/+esm";
-  const apkBuilder = (mode, title) => (host, tool) => {
+  const LAST_KEY = "nexus.apk.last";
+  const SITE_OK = /^https:\/\/[A-Za-z0-9.-]+(\/[A-Za-z0-9._~:/%+-]*)?$/;
+  const apkTool = (kind) => (host, tool) => {
     const KEY = "nexus.apk.secret";
     let secret = "";
     try { secret = window.sessionStorage.getItem(KEY) || ""; } catch (e) { /* opsional */ }
-    const isFlutter = mode === "flutter";
+    const isFlutter = kind === "flutter";
+    let mode = isFlutter ? "zip" : "url";
+    const tabs = isFlutter ? "" : `<div class="segmented ub-tabs mb-12" role="tablist">
+        <button type="button" role="tab" data-mode="url" class="active">Link website</button>
+        <button type="button" role="tab" data-mode="zip">ZIP website</button></div>`;
+    const desc = isFlutter
+      ? "ZIP project Flutter wajib berisi pubspec.yaml dan folder android/. Package ID dan nama APK dibaca otomatis dari ZIP."
+      : "Pilih Link website untuk membungkus alamat https langsung, atau ZIP website yang wajib berisi index.html.";
     host.innerHTML = head(tool) + `<div class="card card-pad mt-16">
-      <p class="hint">${isFlutter
-        ? "Upload ZIP project Flutter (wajib ada pubspec.yaml dan folder android/). Package ID dan nama APK dibaca otomatis dari ZIP."
-        : "Upload ZIP website (wajib ada index.html di dalamnya). Website dibungkus jadi APK Android WebView. Nama dan package ID dibuat otomatis dari judul halaman."}
-        ZIP bisa sampai 2 GB.</p>
+      ${tabs}
+      <p class="hint">${esc(desc)}</p>
       <form class="ub-form mt-12" novalidate>
-        <label class="ub-field"><span>File ZIP</span><input name="zip" type="file" accept=".zip,application/zip" required></label>
-        <label class="ub-field"><span>Kode akses build</span><input name="secret" type="password" maxlength="200" autocomplete="off" value="${esc(secret)}"></label>
-        <div class="row"><button class="btn btn-primary" type="submit">${esc(title)}</button><button class="btn" type="button" data-status>Cek status</button></div>
-        <div class="ub-progress hint" hidden></div>
+        <div class="ub-box" data-box="zip" style="display:${isFlutter ? "block" : "none"}">
+          <div class="ub-file">
+            <label class="btn btn-sm ub-file-btn"><span>Pilih file ZIP</span><input name="zip" type="file" accept=".zip,application/zip" hidden></label>
+            <span class="ub-file-name hint">Belum ada file dipilih</span>
+          </div>
+        </div>
+        <div class="ub-box" data-box="url" style="display:${isFlutter ? "none" : "block"}">
+          <label class="ub-field"><span>Link website (https)</span><input name="url" maxlength="300" autocomplete="off" placeholder="https://contoh.vercel.app"></label>
+          <label class="ub-field mt-12"><span>Nama app (opsional)</span><input name="label" maxlength="40" autocomplete="off" placeholder="Nama di layar HP"></label>
+        </div>
+        <label class="ub-field mt-12"><span>Kode akses build</span><input name="secret" type="password" maxlength="200" autocomplete="off" value="${esc(secret)}"></label>
+        <div class="row"><button class="btn btn-primary" type="submit">${isFlutter ? "Build APK Flutter" : "Build APK"}</button><button class="btn" type="button" data-status>Cek status</button></div>
+        <p class="hint mt-12 ub-note"></p>
       </form>
       <div class="ub-out mt-16" aria-live="polite"></div></div>`;
     const out = host.querySelector(".ub-out");
     const form = host.querySelector("form");
-    const progress = host.querySelector(".ub-progress");
+    const note = host.querySelector(".ub-note");
+    const fileName = host.querySelector(".ub-file-name");
+    const submit = host.querySelector("button[type=submit]");
     const req = (path, init) => fetch(path, init).then(async (r) => {
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || "Permintaan gagal (" + r.status + ").");
@@ -1018,26 +1036,73 @@
       }).join("");
     };
     const checkStatus = () => {
-      const s = form.elements.secret.value;
+      const s = form.elements.secret.value.trim();
       out.innerHTML = '<p class="hint">Mengambil status…</p>';
       req("/api/build-status", { headers: { "x-build-secret": s } })
         .then((d) => showRuns(d.runs || []))
         .catch((err) => { out.innerHTML = notice(err.message); });
     };
+    const showLast = () => {
+      try {
+        const last = JSON.parse(window.localStorage.getItem(LAST_KEY) || "null");
+        if (last && last.tool === tool.id) {
+          note.textContent = "Build terakhir dikirim " + new Date(last.at).toLocaleString("id-ID") + ". Build tetap berjalan di GitHub walaupun halaman ini ditutup. Tekan Cek status untuk melihat hasilnya.";
+          note.style.display = "block";
+        }
+      } catch (e) { /* opsional */ }
+    };
+    showLast();
+
+    host.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", () => {
+      mode = b.dataset.mode;
+      host.querySelectorAll("[data-mode]").forEach((x) => { x.classList.toggle("active", x === b); });
+      host.querySelector('[data-box="zip"]').style.display = mode === "zip" ? "block" : "none";
+      host.querySelector('[data-box="url"]').style.display = mode === "url" ? "block" : "none";
+    }));
+    form.elements.zip.addEventListener("change", () => {
+      const f = form.elements.zip.files[0];
+      fileName.textContent = f ? f.name + " · " + (f.size / 1048576).toFixed(1) + " MB" : "Belum ada file dipilih";
+    });
+
+    const sendBuild = (payload, s) => req("/api/build-apk", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-build-secret": s },
+      body: JSON.stringify(payload),
+    }).then((d) => {
+      try { window.localStorage.setItem(LAST_KEY, JSON.stringify({ tool: tool.id, at: Date.now(), url: d.runsUrl })); } catch (e) { /* opsional */ }
+      out.innerHTML = `<div class="ub-big"><strong>${esc(d.message)}</strong></div><p class="hint mt-12"><a href="${esc(d.runsUrl)}" target="_blank" rel="noopener noreferrer">Lihat semua run di GitHub</a></p>`;
+      showLast();
+      setTimeout(checkStatus, 4000);
+    });
+
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const file = form.elements.zip.files[0];
       const s = form.elements.secret.value.trim();
+      if (!s) { out.innerHTML = notice("Masukkan kode akses build."); return; }
+      try { window.sessionStorage.setItem(KEY, s); } catch (err) { /* opsional */ }
+
+      if (mode === "url") {
+        const site = form.elements.url.value.trim();
+        if (!SITE_OK.test(site) || site.length > 300) { out.innerHTML = notice("Link harus https, tanpa spasi atau tanda kutip."); return; }
+        out.innerHTML = '<p class="hint">Mengirim permintaan build…</p>';
+        submit.disabled = true;
+        sendBuild({ mode: "url", site_url: site, app_label: form.elements.label.value.trim() }, s)
+          .catch((err) => { out.innerHTML = notice(err.message); })
+          .finally(() => { submit.disabled = false; });
+        return;
+      }
+
+      const file = form.elements.zip.files[0];
       if (!file) { out.innerHTML = notice("Pilih file ZIP dulu."); return; }
       if (!/\.zip$/i.test(file.name)) { out.innerHTML = notice("File harus berformat .zip."); return; }
       if (file.size > 2147483648) { out.innerHTML = notice("ZIP melebihi batas 2 GB."); return; }
-      if (!s) { out.innerHTML = notice("Masukkan kode akses build."); return; }
-      try { window.sessionStorage.setItem(KEY, s); } catch (err) { /* opsional */ }
-      const submit = form.querySelector("button[type=submit]");
+
+      // Peringatan jika halaman ditutup saat ZIP masih diunggah (build di GitHub belum mulai).
+      const warn = (ev) => { ev.preventDefault(); ev.returnValue = ""; };
+      window.addEventListener("beforeunload", warn);
       submit.disabled = true;
-      progress.hidden = false;
-      progress.textContent = "Mengunggah ZIP ke penyimpanan…";
-      out.innerHTML = "";
+      out.innerHTML = '<p class="hint" data-progress>Mengunggah ZIP ke penyimpanan…</p>';
+      const progress = () => out.querySelector("[data-progress]");
       try {
         const { upload } = await import(BLOB_CLIENT_URL);
         const blob = await upload(file.name, file, {
@@ -1045,29 +1110,23 @@
           handleUploadUrl: "/api/blob-upload",
           clientPayload: s,
           multipart: true,
-          onUploadProgress: (p) => { progress.textContent = "Mengunggah ZIP… " + Math.round(p.percentage || 0) + "%"; },
+          onUploadProgress: (p) => { const el = progress(); if (el) el.textContent = "Mengunggah ZIP… " + Math.round(p.percentage || 0) + "%"; },
         });
-        progress.textContent = "Upload selesai. Mengirim permintaan build…";
-        const d = await req("/api/build-apk", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "x-build-secret": s },
-          body: JSON.stringify({ mode, blob_url: blob.url }),
-        });
-        out.innerHTML = `<div class="ub-big"><strong>${esc(d.message)}</strong></div><p class="hint mt-12"><a href="${esc(d.runsUrl)}" target="_blank" rel="noopener noreferrer">Lihat semua run di GitHub</a></p>`;
-        setTimeout(checkStatus, 4000);
+        const el = progress(); if (el) el.textContent = "Upload selesai. Mengirim permintaan build…";
+        await sendBuild({ mode: isFlutter ? "flutter" : "web", blob_url: blob.url }, s);
       } catch (err) {
-        out.innerHTML = notice(err.message || "Upload atau build gagal.");
+        out.innerHTML = notice(err.message || "Upload atau build gagal. Coba lagi.");
       } finally {
+        window.removeEventListener("beforeunload", warn);
         submit.disabled = false;
-        progress.hidden = true;
       }
     });
     host.querySelector("[data-status]").addEventListener("click", checkStatus);
     bindFav(host, tool.id);
     N.core.trackTool(tool.id, "utility");
   };
-  impl["apk-flutter"] = apkBuilder("flutter", "Build APK Flutter");
-  impl["web-to-apk"] = apkBuilder("web", "Build APK dari Website");
+  impl["apk-flutter"] = apkTool("flutter");
+  impl["web-to-apk"] = apkTool("web");
 
   /* ------------------------------ dispatcher ------------------------------ */
   N.toolkit = { impl, ids: Object.keys(impl) };
