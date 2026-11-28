@@ -985,14 +985,15 @@
 
   /* ------------------------------ 16. Build APK: Flutter & Web to APK ------------------------------ */
   const BLOB_CLIENT_URL = "https://cdn.jsdelivr.net/npm/@vercel/blob@2.8.0/client/+esm";
-  const LAST_KEY = "nexus.apk.last";
   const SITE_OK = /^https:\/\/[A-Za-z0-9.-]+(\/[A-Za-z0-9._~:/%+-]*)?$/;
   const apkTool = (kind) => (host, tool) => {
     const KEY = "nexus.apk.secret";
+    const PENDING = "nexus.apk.pending." + tool.id;
     let secret = "";
     try { secret = window.sessionStorage.getItem(KEY) || ""; } catch (e) { /* opsional */ }
     const isFlutter = kind === "flutter";
     let mode = isFlutter ? "zip" : "url";
+    let timer = null;
     const tabs = isFlutter ? "" : `<div class="segmented ub-tabs mb-12" role="tablist">
         <button type="button" role="tab" data-mode="url" class="active">Link website</button>
         <button type="button" role="tab" data-mode="zip">ZIP website</button></div>`;
@@ -1014,44 +1015,111 @@
           <label class="ub-field mt-12"><span>Nama app (opsional)</span><input name="label" maxlength="40" autocomplete="off" placeholder="Nama di layar HP"></label>
         </div>
         <label class="ub-field mt-12"><span>Kode akses build</span><input name="secret" type="password" maxlength="200" autocomplete="off" value="${esc(secret)}"></label>
-        <div class="row"><button class="btn btn-primary" type="submit">${isFlutter ? "Build APK Flutter" : "Build APK"}</button><button class="btn" type="button" data-status>Cek status</button></div>
-        <p class="hint mt-12 ub-note"></p>
+        <div class="row"><button class="btn btn-primary" type="submit">${isFlutter ? "Build APK Flutter" : "Build APK"}</button><button class="btn" type="button" data-refresh>Muat ulang riwayat</button></div>
       </form>
-      <div class="ub-out mt-16" aria-live="polite"></div></div>`;
+      <div class="ub-out mt-16" aria-live="polite"></div></div>
+    <div class="card card-pad mt-16">
+      <h3 class="ub-h">Progres build</h3>
+      <div class="ub-bar mt-12"><i data-bar></i></div>
+      <p class="hint mt-12" data-phase>Belum ada build berjalan.</p>
+      <div class="row mt-12" data-dl></div>
+    </div>
+    <div class="card card-pad mt-16">
+      <h3 class="ub-h">Riwayat build</h3>
+      <div class="ub-hist mt-12"></div>
+    </div>`;
     const out = host.querySelector(".ub-out");
     const form = host.querySelector("form");
-    const note = host.querySelector(".ub-note");
     const fileName = host.querySelector(".ub-file-name");
     const submit = host.querySelector("button[type=submit]");
+    const bar = host.querySelector("[data-bar]");
+    const phase = host.querySelector("[data-phase]");
+    const dl = host.querySelector("[data-dl]");
+    const hist = host.querySelector(".ub-hist");
+    const secretVal = () => form.elements.secret.value.trim();
+    const setBar = (pct) => { bar.style.width = Math.max(0, Math.min(100, Math.round(pct))) + "%"; };
     const req = (path, init) => fetch(path, init).then(async (r) => {
       const data = await r.json().catch(() => ({}));
       if (!r.ok) throw new Error(data.error || "Permintaan gagal (" + r.status + ").");
       return data;
     });
-    const showRuns = (runs) => {
-      if (!runs.length) { out.innerHTML = '<p class="hint">Belum ada build.</p>'; return; }
-      out.innerHTML = runs.map((r) => {
-        const state = r.status !== "completed" ? r.status : (r.conclusion || "selesai");
-        return `<div class="ub-counter"><div><strong>${esc(r.title || "Build APK")}</strong><span class="hint"> · ${esc(state)} · ${esc(new Date(r.created_at).toLocaleString("id-ID"))}</span></div><a class="btn btn-sm" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">Buka log &amp; APK</a></div>`;
-      }).join("");
-    };
-    const checkStatus = () => {
-      const s = form.elements.secret.value.trim();
-      out.innerHTML = '<p class="hint">Mengambil status…</p>';
-      req("/api/build-status", { headers: { "x-build-secret": s } })
-        .then((d) => showRuns(d.runs || []))
+    const readPending = () => { try { return JSON.parse(window.localStorage.getItem(PENDING) || "null"); } catch (e) { return null; } };
+    const writePending = (p) => { try { if (p) window.localStorage.setItem(PENDING, JSON.stringify(p)); else window.localStorage.removeItem(PENDING); } catch (e) { /* opsional */ } };
+
+    const downloadRun = (id) => {
+      const s = secretVal();
+      if (!s) { out.innerHTML = notice("Masukkan kode akses build dulu."); return; }
+      req("/api/build-download?run=" + encodeURIComponent(id), { headers: { "x-build-secret": s } })
+        .then((d) => {
+          const a = document.createElement("a");
+          a.href = d.url;
+          a.download = d.name || "apk.zip";
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        })
         .catch((err) => { out.innerHTML = notice(err.message); });
     };
-    const showLast = () => {
-      try {
-        const last = JSON.parse(window.localStorage.getItem(LAST_KEY) || "null");
-        if (last && last.tool === tool.id) {
-          note.textContent = "Build terakhir dikirim " + new Date(last.at).toLocaleString("id-ID") + ". Build tetap berjalan di GitHub walaupun halaman ini ditutup. Tekan Cek status untuk melihat hasilnya.";
-          note.style.display = "block";
-        }
-      } catch (e) { /* opsional */ }
+    const renderHistory = (runs) => {
+      if (!runs.length) { hist.innerHTML = '<p class="hint">Belum ada build.</p>'; return; }
+      hist.innerHTML = runs.slice(0, 15).map((r) => {
+        const ok = r.status === "completed" && r.conclusion === "success";
+        const state = r.status !== "completed" ? "Berjalan" : ok ? "Berhasil" : r.conclusion === "cancelled" ? "Dibatalkan" : "Gagal";
+        const btn = ok ? `<button class="btn btn-sm btn-primary" type="button" data-dl-run="${esc(r.id)}">Download APK</button>` : "";
+        return `<div class="ub-counter"><div><strong>${esc(r.title)}</strong><span class="hint"> · ${esc(state)} · ${esc(new Date(r.created_at).toLocaleString("id-ID"))}</span></div><div class="row">${btn}<a class="btn btn-sm" href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">Log</a></div></div>`;
+      }).join("");
     };
-    showLast();
+    const showFinished = (p) => {
+      const ok = p.conclusion === "success";
+      setBar(100);
+      phase.textContent = ok ? "Build berhasil. Tekan Download APK untuk mengunduh." : "Build gagal (" + (p.conclusion || "error") + "). Buka log untuk melihat penyebabnya.";
+      dl.innerHTML = ok && p.runId ? `<button class="btn btn-primary" type="button" data-dl-run="${esc(p.runId)}">Download APK</button>` : "";
+    };
+
+    // Melacak build sampai selesai. Berjalan terus walau browser pindah tool, karena build ada di GitHub.
+    const track = async () => {
+      clearTimeout(timer);
+      if (!host.isConnected) return;
+      const s = secretVal();
+      if (!s) { phase.textContent = "Masukkan kode akses build untuk melihat progres dan riwayat."; return; }
+      let p = readPending();
+      try {
+        const runs = (await req("/api/build-status", { headers: { "x-build-secret": s } })).runs || [];
+        renderHistory(runs);
+        if (!p) return;
+        if (p.finished) { showFinished(p); return; }
+        if (!p.runId) {
+          const cand = runs
+            .filter((r) => Date.parse(r.created_at) >= p.at - 120000)
+            .sort((a, b) => Date.parse(a.created_at) - Date.parse(b.created_at))[0];
+          if (!cand) {
+            phase.textContent = "Menunggu GitHub memulai build…";
+            timer = setTimeout(track, 4000);
+            return;
+          }
+          p.runId = cand.id;
+          writePending(p);
+        }
+        const d = await req("/api/build-status?run=" + p.runId, { headers: { "x-build-secret": s } });
+        if (d.status !== "completed") {
+          const pct = d.total ? (d.done / d.total) * 100 : 3;
+          setBar(pct);
+          phase.textContent = d.current
+            ? "Build berjalan: langkah " + Math.min(d.done + 1, d.total) + " dari " + d.total + " — " + d.current
+            : "Menunggu runner GitHub…";
+          timer = setTimeout(track, 5000);
+          return;
+        }
+        p.finished = true;
+        p.conclusion = d.conclusion;
+        writePending(p);
+        showFinished(p);
+        renderHistory((await req("/api/build-status", { headers: { "x-build-secret": s } })).runs || []);
+      } catch (err) {
+        phase.textContent = err.message;
+        timer = setTimeout(track, 8000);
+      }
+    };
 
     host.querySelectorAll("[data-mode]").forEach((b) => b.addEventListener("click", () => {
       mode = b.dataset.mode;
@@ -1063,30 +1131,42 @@
       const f = form.elements.zip.files[0];
       fileName.textContent = f ? f.name + " · " + (f.size / 1048576).toFixed(1) + " MB" : "Belum ada file dipilih";
     });
+    form.elements.secret.addEventListener("change", () => {
+      try { window.sessionStorage.setItem(KEY, secretVal()); } catch (e) { /* opsional */ }
+      track();
+    });
+    host.querySelector("[data-refresh]").addEventListener("click", () => track());
+    host.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-dl-run]");
+      if (b) downloadRun(b.dataset.dlRun);
+    });
 
-    const sendBuild = (payload, s) => req("/api/build-apk", {
+    const dispatch = (payload, s, at) => req("/api/build-apk", {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-build-secret": s },
       body: JSON.stringify(payload),
     }).then((d) => {
-      try { window.localStorage.setItem(LAST_KEY, JSON.stringify({ tool: tool.id, at: Date.now(), url: d.runsUrl })); } catch (e) { /* opsional */ }
+      writePending({ tool: tool.id, at, mode: payload.mode });
       out.innerHTML = `<div class="ub-big"><strong>${esc(d.message)}</strong></div><p class="hint mt-12"><a href="${esc(d.runsUrl)}" target="_blank" rel="noopener noreferrer">Lihat semua run di GitHub</a></p>`;
-      showLast();
-      setTimeout(checkStatus, 4000);
+      setBar(3);
+      phase.textContent = "Permintaan build terkirim. Menunggu GitHub…";
+      dl.innerHTML = "";
+      track();
     });
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const s = form.elements.secret.value.trim();
+      const s = secretVal();
       if (!s) { out.innerHTML = notice("Masukkan kode akses build."); return; }
       try { window.sessionStorage.setItem(KEY, s); } catch (err) { /* opsional */ }
+      const at = Date.now();
 
       if (mode === "url") {
         const site = form.elements.url.value.trim();
         if (!SITE_OK.test(site) || site.length > 300) { out.innerHTML = notice("Link harus https, tanpa spasi atau tanda kutip."); return; }
-        out.innerHTML = '<p class="hint">Mengirim permintaan build…</p>';
         submit.disabled = true;
-        sendBuild({ mode: "url", site_url: site, app_label: form.elements.label.value.trim() }, s)
+        out.innerHTML = '<p class="hint">Mengirim permintaan build…</p>';
+        dispatch({ mode: "url", site_url: site, app_label: form.elements.label.value.trim() }, s, at)
           .catch((err) => { out.innerHTML = notice(err.message); })
           .finally(() => { submit.disabled = false; });
         return;
@@ -1097,12 +1177,14 @@
       if (!/\.zip$/i.test(file.name)) { out.innerHTML = notice("File harus berformat .zip."); return; }
       if (file.size > 2147483648) { out.innerHTML = notice("ZIP melebihi batas 2 GB."); return; }
 
-      // Peringatan jika halaman ditutup saat ZIP masih diunggah (build di GitHub belum mulai).
+      // Upload ZIP masih lewat browser. Kalau halaman ditutup di tahap ini, upload harus diulang.
       const warn = (ev) => { ev.preventDefault(); ev.returnValue = ""; };
       window.addEventListener("beforeunload", warn);
       submit.disabled = true;
-      out.innerHTML = '<p class="hint" data-progress>Mengunggah ZIP ke penyimpanan…</p>';
-      const progress = () => out.querySelector("[data-progress]");
+      out.innerHTML = "";
+      setBar(0);
+      phase.textContent = "Mengunggah ZIP… 0%";
+      dl.innerHTML = "";
       try {
         const { upload } = await import(BLOB_CLIENT_URL);
         const blob = await upload(file.name, file, {
@@ -1110,20 +1192,27 @@
           handleUploadUrl: "/api/blob-upload",
           clientPayload: s,
           multipart: true,
-          onUploadProgress: (p) => { const el = progress(); if (el) el.textContent = "Mengunggah ZIP… " + Math.round(p.percentage || 0) + "%"; },
+          onUploadProgress: (p) => {
+            const pct = Math.round(p.percentage || 0);
+            setBar(pct);
+            phase.textContent = "Mengunggah ZIP… " + pct + "%";
+          },
         });
-        const el = progress(); if (el) el.textContent = "Upload selesai. Mengirim permintaan build…";
-        await sendBuild({ mode: isFlutter ? "flutter" : "web", blob_url: blob.url }, s);
+        phase.textContent = "Upload selesai. Mengirim permintaan build…";
+        await dispatch({ mode: isFlutter ? "flutter" : "web", blob_url: blob.url }, s, at);
       } catch (err) {
         out.innerHTML = notice(err.message || "Upload atau build gagal. Coba lagi.");
+        phase.textContent = "Upload gagal.";
+        setBar(0);
       } finally {
         window.removeEventListener("beforeunload", warn);
         submit.disabled = false;
       }
     });
-    host.querySelector("[data-status]").addEventListener("click", checkStatus);
+
     bindFav(host, tool.id);
     N.core.trackTool(tool.id, "utility");
+    track();
   };
   impl["apk-flutter"] = apkTool("flutter");
   impl["web-to-apk"] = apkTool("web");

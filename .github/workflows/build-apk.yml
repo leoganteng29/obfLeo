@@ -1,5 +1,7 @@
 name: Build APK (Flutter / Web ZIP / Link Website)
 
+run-name: Build APK ${{ inputs.mode }} ${{ inputs.app_label }}
+
 on:
   workflow_dispatch:
     inputs:

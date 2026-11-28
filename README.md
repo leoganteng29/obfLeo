@@ -119,10 +119,27 @@ AI Studio mengirim request ke `/api/chat` dan `/api/models`. Kedua endpoint Verc
 - "Ctrl K" dihapus dari tampilan.
 - **APK WebView**: `js/ai.js` membaca `window.NEXUS_API_BASE` (mis. `https://domain-anda.vercel.app`) agar proksi AI tetap bisa dipanggil dari APK. Kosongkan untuk pemakaian di Vercel.
 
+## Login akun
+Seluruh website terkunci sampai user masuk. User bisa masuk dengan username dan password, atau tekan **Buat akun baru gratis** untuk mendapatkan username dan password acak. Password hanya ditampilkan sekali, jadi simpan sebelum lanjut.
+
+Akun dan sesi disimpan di Redis, dengan password di-hash (scrypt), dan sesi berupa cookie HttpOnly.
+
+**Setup sekali saja:**
+1. Di Vercel → Storage → Create New → **Store** → **Redis** (Upstash), hubungkan ke project `obf-leo`.
+2. Pastikan env `KV_REST_API_URL` dan `KV_REST_API_TOKEN` (atau `UPSTASH_REDIS_REST_URL` dan `UPSTASH_REDIS_REST_TOKEN`) sudah muncul.
+3. Deploy ulang.
+
+**Batasan jujur:**
+- Gerbang login hanya mengunci tampilan. Kode tool tetap bisa dilihat oleh siapa saja yang tahu cara membuka sumber halaman. Yang benar-benar dilindungi di server adalah API (sesi dicek di `/api/auth/me`).
+- Belum ada batas percobaan login. Akun yang dibuat otomatis aman karena password acaknya panjang.
+- Belum ada menu developer untuk mengelola akun.
+
 ## Build APK dari website
 Dua tool di menu Utilities:
 - **Build APK Flutter**: upload ZIP project Flutter (wajib ada `pubspec.yaml` dan `android/`). Package ID dan nama app dibaca otomatis dari ZIP.
 - **Web to APK**: pilih **Link website** (alamat https langsung dibungkus jadi APK) atau **ZIP website** (wajib ada `index.html`).
+
+Di setiap tool ada **progres build** (bar dan langkah yang sedang jalan), **riwayat build** (berhasil, gagal, atau berjalan), dan tombol **Download APK** saat build berhasil. APK diunduh sebagai ZIP berisi file .apk. Artifact disimpan 7 hari.
 
 Build berjalan di GitHub Actions (`.github/workflows/build-apk.yml`), jadi tetap jalan walaupun Anda menutup halaman setelah tombol build ditekan. Yang berhenti kalau halaman ditutup adalah upload ZIP. Selama upload, browser akan menampilkan peringatan.
 
@@ -140,4 +157,5 @@ Build berjalan di GitHub Actions (`.github/workflows/build-apk.yml`), jadi tetap
 - APK yang dihasilkan adalah build debug (sudah ditandatangani otomatis oleh Android). Untuk Play Store perlu keystore release.
 - AI di dalam APK hanya jalan bila `NEXUS_API_BASE` diisi, misalnya di `js/ai-key.local.js`: `window.NEXUS_API_BASE = "https://domain-anda.vercel.app";`
 - File ZIP disimpan di Vercel Blob dengan link publik. Siapa pun yang memegang link bisa mengunduhnya, jadi jangan upload kode rahasia.
+- Tombol Download APK memakai `api/build-download.js`, dan link unduhnya berlaku singkat.
 - Alur ini belum diuji end-to-end di lingkungan nyata. Coba dulu dengan ZIP kecil.
